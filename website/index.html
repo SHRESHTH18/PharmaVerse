@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PharmaVerse - Agentic AI for Portfolio Innovation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-50">
+    
+    <!-- SCREEN 1: Landing Page -->
+    <div id="screen-landing" class="screen">
+        <div class="min-h-screen gradient-bg flex items-center justify-center px-4">
+            <div class="max-w-6xl w-full">
+                <!-- Hero Section -->
+                <div class="text-center text-white mb-16">
+                    <h1 class="text-6xl font-bold mb-6">Agentic AI for Portfolio Innovation</h1>
+                    <p class="text-2xl mb-12 text-purple-100">From molecule to differentiated product concept in minutes.</p>
+                    
+                    <div class="flex gap-4 justify-center">
+                        <button onclick="showScreen('screen-case-setup')" class="bg-white text-purple-700 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-purple-50 transition shadow-lg">
+                            <i class="fas fa-flask mr-2"></i>Start New Molecule Exploration
+                        </button>
+                        <button onclick="showScreen('screen-reports')" class="glass-effect text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white/20 transition">
+                            <i class="fas fa-folder-open mr-2"></i>View Saved Cases / Reports
+                        </button>
+                    </div>
+                </div>
+
+                                <!-- Agent Network Visualization -->
+                <div class="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20">
+                    <!-- <h3 class="text-white text-2xl font-semibold mb-8 text-center">AI Agent Network</h3> -->
+                    <div class="relative min-h-[500px] flex items-center justify-center">
+                        <!-- Center: Master Agent -->
+                        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10">
+                            <div class="agent-node bg-white rounded-full w-40 h-40 flex items-center justify-center shadow-2xl">
+                                <div class="text-center">
+                                    <i class="fas fa-brain text-5xl text-purple-600 mb-2"></i>
+                                    <p class="text-sm font-bold text-purple-600">Master Agent</p>
+                                </div>
+                            </div>
+                        </div>
+                
+                        <!-- Worker Agents in a circle -->
+                        <div class="circular-agents">
+                            <div class="agent-node agent-position-1 bg-purple-100 rounded-xl p-4 text-center hover:shadow-lg">
+                                <i class="fas fa-chart-line text-3xl text-purple-600 mb-2"></i>
+                                <p class="text-sm font-semibold text-purple-800">Internal Knowledge</p>
+                            </div>
+                            <div class="agent-node agent-position-2 bg-blue-100 rounded-xl p-4 text-center hover:shadow-lg">
+                                <i class="fas fa-globe text-3xl text-blue-600 mb-2"></i>
+                                <p class="text-sm font-semibold text-blue-800">EXIM Trends</p>
+                            </div>
+                            <div class="agent-node agent-position-3 bg-green-100 rounded-xl p-4 text-center hover:shadow-lg">
+                                <i class="fas fa-gavel text-3xl text-green-600 mb-2"></i>
+                                <p class="text-sm font-semibold text-green-800">Patent Landscape</p>
+                            </div>
+                            <div class="agent-node agent-position-4 bg-red-100 rounded-xl p-4 text-center hover:shadow-lg">
+                                <i class="fas fa-microscope text-3xl text-red-600 mb-2"></i>
+                                <p class="text-sm font-semibold text-red-800">Clinical Trials</p>
+                            </div>
+                            <div class="agent-node agent-position-5 bg-yellow-100 rounded-xl p-4 text-center hover:shadow-lg">
+                                <i class="fas fa-database text-3xl text-yellow-600 mb-2"></i>
+                                <p class="text-sm font-semibold text-yellow-800">IQVIA Insights</p>
+                            </div>
+                            <div class="agent-node agent-position-6 bg-indigo-100 rounded-xl p-4 text-center hover:shadow-lg">
+                                <i class="fas fa-search text-3xl text-indigo-600 mb-2"></i>
+                                <p class="text-sm font-semibold text-indigo-800">Web Intelligence</p>
+                            </div>
+                            <div class="agent-node agent-position-7 bg-pink-100 rounded-xl p-4 text-center hover:shadow-lg">
+                                <i class="fas fa-file-pdf text-3xl text-pink-600 mb-2"></i>
+                                <p class="text-sm font-semibold text-pink-800">Report Generator</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCREEN 2: Case Setup -->
+    <div id="screen-case-setup" class="screen hidden">
+        <div class="min-h-screen bg-gray-50">
+            <!-- Top Bar -->
+            <div class="bg-white shadow-sm border-b">
+                <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+                    <div class="flex items-center gap-4">
+                        <button onclick="showScreen('screen-landing')" class="text-gray-600 hover:text-gray-900">
+                            <i class="fas fa-arrow-left"></i>
+                        </button>
+                        <h1 class="text-2xl font-bold text-gray-900">New Molecule Exploration</h1>
+                    </div>
+                </div>
+            </div>
+
+            <div class="max-w-7xl mx-auto px-6 py-8">
+                <div class="grid grid-cols-3 gap-8">
+                    <!-- Left Panel: Input Form -->
+                    <div class="col-span-1">
+                        <div class="bg-white rounded-xl shadow-lg p-6">
+                            <h2 class="text-xl font-bold text-gray-900 mb-6">Case Details</h2>
+                            
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Molecule Name</label>
+                                    <input type="text" id="molecule-name" placeholder="e.g., Roflumilast" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Current Indication</label>
+                                    <input type="text" id="indication" placeholder="e.g., COPD" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Geography</label>
+                                    <input type="text" id="geography" placeholder="e.g., US, EU, India" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Target Timeframe</label>
+                                    <input type="text" id="timeframe" placeholder="e.g., 2024-2026" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Strategic Question</label>
+                                    <textarea id="strategic-question" rows="4" placeholder="e.g., Find unmet needs and innovation options for respiratory diseases..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"></textarea>
+                                </div>
+
+                                <button onclick="launchAgentRun()" class="w-full bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700 transition">
+                                    <i class="fas fa-rocket mr-2"></i>Launch Agent Run
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Panel: Journey Stepper -->
+                    <div class="col-span-2">
+                        <div class="bg-white rounded-xl shadow-lg p-8">
+                            <h2 class="text-xl font-bold text-gray-900 mb-8">Exploration Journey</h2>
+                            
+                            <div class="space-y-6">
+                                <div class="flex items-start gap-4">
+                                    <div class="flex-shrink-0 w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                                        <span class="text-purple-600 font-bold text-lg">1</span>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-lg font-semibold text-gray-900">Unmet Need & Disease Burden</h3>
+                                        <p class="text-gray-600 mt-1">Identify patient populations with high unmet needs and disease burden analysis</p>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-start gap-4">
+                                    <div class="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                                        <span class="text-blue-600 font-bold text-lg">2</span>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-lg font-semibold text-gray-900">Market & EXIM Dynamics</h3>
+                                        <p class="text-gray-600 mt-1">Analyze market size, growth trends, and import/export patterns</p>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-start gap-4">
+                                    <div class="flex-shrink-0 w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                                        <span class="text-green-600 font-bold text-lg">3</span>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-lg font-semibold text-gray-900">Clinical Trials Landscape</h3>
+                                        <p class="text-gray-600 mt-1">Map ongoing trials, sponsors, and pipeline opportunities</p>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-start gap-4">
+                                    <div class="flex-shrink-0 w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                                        <span class="text-red-600 font-bold text-lg">4</span>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-lg font-semibold text-gray-900">Patent Landscape</h3>
+                                        <p class="text-gray-600 mt-1">Review patent status, expiry timelines, and freedom-to-operate</p>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-start gap-4">
+                                    <div class="flex-shrink-0 w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                                        <span class="text-yellow-600 font-bold text-lg">5</span>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-lg font-semibold text-gray-900">Product Story & Report</h3>
+                                        <p class="text-gray-600 mt-1">Generate comprehensive innovation opportunity report</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCREEN 3: Main Workspace (Chat + Agents) -->
+    <div id="screen-workspace" class="screen hidden">
+        <div class="h-screen flex flex-col bg-gray-50">
+            <!-- Top Bar -->
+            <div class="bg-white shadow-sm border-b px-6 py-4 flex justify-between items-center">
+                <div class="flex items-center gap-4">
+                    <h1 class="text-xl font-bold text-gray-900">
+                        <span id="current-molecule-name">Metformin</span>
+                        <span class="text-gray-400 text-sm ml-2">- Type 2 Diabetes</span>
+                    </h1>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="showScreen('screen-molecule-dossier')" class="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition">
+                        <i class="fas fa-file-medical mr-2"></i>Molecule Dossier
+                    </button>
+                    <button onclick="generateReport()" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+                        <i class="fas fa-file-pdf mr-2"></i>Generate Report
+                    </button>
+                </div>
+            </div>
+
+            <!-- Agent Status Strip -->
+            <div class="bg-gradient-to-r from-purple-50 to-blue-50 px-6 py-3 border-b">
+                <div class="flex gap-4 items-center overflow-x-auto">
+                    <span class="text-sm font-medium text-gray-700">Agent Status:</span>
+                    <div id="agent-status-container" class="flex gap-3">
+                        <!-- Will be populated dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex-1 flex overflow-hidden">
+                <!-- Left Sidebar -->
+                <div class="w-72 bg-white border-r overflow-y-auto">
+                    <div class="p-4">
+                        <h3 class="text-sm font-semibold text-gray-700 mb-3">CASE DETAILS</h3>
+                        <div class="space-y-2 text-sm mb-6">
+                            <div><span class="text-gray-500">Molecule:</span> <span id="sidebar-molecule" class="font-medium">Metformin</span></div>
+                            <div><span class="text-gray-500">Indication:</span> <span id="sidebar-indication" class="font-medium">Type 2 Diabetes</span></div>
+                            <div><span class="text-gray-500">Geography:</span> <span id="sidebar-geography" class="font-medium">US, EU, India</span></div>
+                        </div>
+
+                        <h3 class="text-sm font-semibold text-gray-700 mb-3">FILTERS</h3>
+                        <div class="space-y-3 mb-6">
+                            <div>
+                                <label class="text-xs text-gray-600">Country</label>
+                                <select class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mt-1">
+                                    <option>All Countries</option>
+                                    <option>US</option>
+                                    <option>EU</option>
+                                    <option>India</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-600">Therapy Area</label>
+                                <select class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mt-1">
+                                    <option>All</option>
+                                    <option>Diabetes</option>
+                                    <option>Oncology</option>
+                                    <option>Respiratory</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <h3 class="text-sm font-semibold text-gray-700 mb-3">CONVERSATION HISTORY</h3>
+                        <div id="conversation-history" class="space-y-2">
+                            <!-- Will be populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Center: Chat Area -->
+                <div class="flex-1 flex flex-col bg-gray-50">
+                    <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-4">
+                        <!-- Chat messages will be added here -->
+                    </div>
+
+                    <!-- Chat Input -->
+                    <div class="bg-white border-t p-4">
+                        <div class="flex gap-3">
+                            <input 
+                                type="text" 
+                                id="chat-input" 
+                                placeholder="Ask the Master Agent anything..." 
+                                class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                onkeypress="handleChatKeyPress(event)"
+                            >
+                            <button onclick="sendChatMessage()" class="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Panel: Insights -->
+                <div class="w-96 bg-white border-l overflow-y-auto">
+                    <!-- Tab Bar -->
+                    <div class="border-b bg-gray-50">
+                        <div class="flex overflow-x-auto">
+                            <button onclick="switchTab('overview')" class="insight-tab active px-4 py-3 text-sm font-medium border-b-2 border-purple-600 text-purple-600">Overview</button>
+                            <button onclick="switchTab('market')" class="insight-tab px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-600 hover:text-gray-900">Market</button>
+                            <button onclick="switchTab('trade')" class="insight-tab px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-600 hover:text-gray-900">Trade</button>
+                            <button onclick="switchTab('trials')" class="insight-tab px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-600 hover:text-gray-900">Trials</button>
+                            <button onclick="switchTab('patents')" class="insight-tab px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-600 hover:text-gray-900">Patents</button>
+                        </div>
+                    </div>
+
+                    <!-- Tab Content -->
+                    <div id="insight-content" class="p-4">
+                        <!-- Content will be loaded dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCREEN 4: Molecule Dossier -->
+    <div id="screen-molecule-dossier" class="screen hidden">
+        <div class="min-h-screen bg-gray-50">
+            <!-- Top Bar -->
+            <div class="bg-white shadow-sm border-b">
+                <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+                    <div class="flex items-center gap-4">
+                        <button onclick="showScreen('screen-workspace')" class="text-gray-600 hover:text-gray-900">
+                            <i class="fas fa-arrow-left"></i>
+                        </button>
+                        <h1 class="text-2xl font-bold text-gray-900">Molecule Dossier</h1>
+                    </div>
+                    <button onclick="generateReport()" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+                        <i class="fas fa-file-pdf mr-2"></i>Generate Report
+                    </button>
+                </div>
+            </div>
+
+            <div class="max-w-7xl mx-auto px-6 py-8">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl p-8 text-white mb-6">
+                    <h2 class="text-4xl font-bold mb-2" id="dossier-molecule">Metformin</h2>
+                    <p class="text-xl mb-4" id="dossier-indication">Primary Indication: Type 2 Diabetes</p>
+                    <p class="text-lg opacity-90" id="dossier-unmet-need">Key Unmet Need: Better glycemic control with reduced GI side effects</p>
+                </div>
+
+                <!-- Section 1: Unmet Needs & Patient Burden -->
+                <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                    <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <i class="fas fa-users text-purple-600 mr-3"></i>
+                        Unmet Needs & Patient Burden
+                    </h3>
+                    <div id="unmet-needs-content">
+                        <!-- Will be populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Section 2: Ongoing Trials -->
+                <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                    <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <i class="fas fa-microscope text-red-600 mr-3"></i>
+                        Ongoing Clinical Trials
+                    </h3>
+                    <div id="trials-table-content">
+                        <!-- Will be populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Section 3: Patent Landscape -->
+                <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                    <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <i class="fas fa-gavel text-green-600 mr-3"></i>
+                        Patent Landscape
+                    </h3>
+                    <div id="patents-table-content">
+                        <!-- Will be populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Section 4: Innovation Ideas -->
+                <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                    <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <i class="fas fa-lightbulb text-yellow-600 mr-3"></i>
+                        Innovation Opportunities
+                    </h3>
+                    <div id="innovation-ideas-content" class="grid grid-cols-2 gap-4">
+                        <!-- Will be populated dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCREEN 5: Reports Archive -->
+    <div id="screen-reports" class="screen hidden">
+        <div class="min-h-screen bg-gray-50">
+            <!-- Top Bar -->
+            <div class="bg-white shadow-sm border-b">
+                <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+                    <div class="flex items-center gap-4">
+                        <button onclick="showScreen('screen-landing')" class="text-gray-600 hover:text-gray-900">
+                            <i class="fas fa-arrow-left"></i>
+                        </button>
+                        <h1 class="text-2xl font-bold text-gray-900">Innovation Opportunity Reports</h1>
+                    </div>
+                </div>
+            </div>
+
+            <div class="max-w-7xl mx-auto px-6 py-8">
+                <div class="grid grid-cols-3 gap-8">
+                    <!-- Left: Report Preview -->
+                    <div class="col-span-2">
+                        <div class="bg-white rounded-xl shadow-lg p-8">
+                            <div class="flex justify-between items-start mb-6">
+                                <div>
+                                    <h2 class="text-2xl font-bold text-gray-900 mb-2">Innovation Opportunity Report</h2>
+                                    <p class="text-gray-600">Generated on <span id="report-date">Dec 8, 2025</span></p>
+                                </div>
+                                <div class="flex gap-3">
+                                    <button class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                                        <i class="fas fa-file-pdf mr-2"></i>Download PDF
+                                    </button>
+                                    <button class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                                        <i class="fas fa-file-excel mr-2"></i>Download Excel
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Report Preview -->
+                            <div id="report-preview" class="space-y-6 border-t pt-6">
+                                <!-- Will be populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Report Archive -->
+                    <div class="col-span-1">
+                        <div class="bg-white rounded-xl shadow-lg p-6">
+                            <h3 class="text-xl font-bold text-gray-900 mb-4">Report Archive</h3>
+                            <div id="report-archive" class="space-y-3">
+                                <!-- Will be populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
