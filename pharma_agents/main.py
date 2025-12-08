@@ -1,35 +1,53 @@
 # main.py
-
-from pprint import pprint
-
+import os
+from dotenv import load_dotenv
 from master_agent import MasterAgent
 
+load_dotenv()
 
-def run_example():
-    """
-    Example orchestration run.
 
-    You can later wire this into a web UI / chatbot front-end.
-    """
+def main():
+    # Example query from portfolio planner
+    user_query = (
+        "Evaluate the innovation opportunity for Semaglutide in obesity. "
+        
+    )
+
     master = MasterAgent()
+    result = master.run(user_query)
 
-    # Example query from a portfolio planner:
-    molecule = "Semaglutide"
-    indication = "Obesity"
+    print("\n" + "="*70)
+    print("FINAL ANSWER")
+    print("="*70)
+    print(result["final_answer"])
 
-    print(f"=== Running evaluation for {molecule} in {indication} ===")
-    result = master.evaluate_molecule(molecule=molecule, indication=indication)
-
-    # Pretty-print some useful parts:
-    print("\n=== Simple Summary ===")
-    pprint(result["simple_summary"])
-
-    print("\n=== Report Metadata ===")
-    pprint(result["results"]["report"]["raw"])
-
-    # You can also inspect individual agent raw outputs:
-    # pprint(result["results"]["iqvia"]["raw"])
+    # Display download link
+    report_meta = result["report"]
+    api_base_url = os.getenv("API_BASE_URL", "http://localhost:8000")
+    
+    if "download_link" in report_meta:
+        download_link = report_meta["download_link"]
+        if download_link.startswith("/"):
+            full_download_url = f"{api_base_url}{download_link}"
+        else:
+            full_download_url = download_link
+        
+        print("\n" + "="*70)
+        print("📥 DOWNLOADABLE REPORT LINK")
+        print("="*70)
+        print(f"\n🔗 {full_download_url}\n")
+        print(f"Report ID: {report_meta.get('report_id', 'N/A')}")
+        print(f"Report Type: {report_meta.get('report_type', 'N/A')}")
+        print(f"Topic: {report_meta.get('topic', 'N/A')}")
+        if 'file_size_mb' in report_meta:
+            print(f"File Size: {report_meta['file_size_mb']} MB")
+        if 'page_count' in report_meta:
+            print(f"Pages: {report_meta['page_count']}")
+        print("="*70)
+    else:
+        print("\n=== REPORT METADATA ===")
+        print(report_meta)
 
 
 if __name__ == "__main__":
-    run_example()
+    main()

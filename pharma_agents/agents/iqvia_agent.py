@@ -1,8 +1,5 @@
 # agents/iqvia_agent.py
-
 from typing import Any, Dict
-import requests
-
 from .base_agent import BaseAgent
 
 
@@ -11,17 +8,42 @@ class IQVIAAgent(BaseAgent):
     def name(self) -> str:
         return "IQVIA Insights Agent"
 
-    def run(self, molecule: str, **_: Any) -> Dict[str, Any]:
+    def run(self, user_query: str) -> Dict[str, Any]:
         """
-        Calls /api/iqvia?molecule=...
+        Uses LLM to extract molecule from query, calls API, and generates summary.
         """
-        url = f"{self.base_url}/api/iqvia"
-        params = {"molecule": molecule}
-        response = requests.get(url, params=params, timeout=10)
-        response.raise_for_status()
-        data = response.json()
+        # 1. Parse query with LLM
+        extraction_prompt = (
+            "Extract the molecule name from the query. "
+            "Return JSON: {{\"molecule\": \"<molecule_name>\"}}"
+        )
+        params = self._parse_query_with_llm(user_query, extraction_prompt)
+        molecule = params.get("molecule", "").strip()
+        
+        if not molecule:
+            return {
+                "agent": self.name,
+                "params": {},
+                "raw": {},
+                "summary": "Could not extract molecule name from query."
+            }
+
+        # 2. Call API
+        raw = self._get("/api/iqvia", {"molecule": molecule})
+
+        # 3. Generate summary with LLM
+        summary_prompt = (
+            "Summarize the IQVIA market data. Highlight: "
+            "- Market size and growth (CAGR)"
+            "- Top markets by sales"
+            "- Competition landscape"
+            "- Unmet needs"
+        )
+        summary = self._generate_summary_with_llm(raw, summary_prompt)
+
         return {
             "agent": self.name,
-            "molecule": molecule,
-            "raw": data,
+            "params": {"molecule": molecule},
+            "raw": raw,
+            "summary": summary,
         }

@@ -1,2 +1,8 @@
 requests
 pydantic
+python-dotenv
+groq
+langchain==0.3.8
+langchain-groq
+langgraph
+reportlab

@@ -1,8 +1,5 @@
 # agents/clinical_trials_agent.py
-
-from typing import Any, Dict, Optional
-import requests
-
+from typing import Any, Dict
 from .base_agent import BaseAgent
 
 
@@ -11,34 +8,53 @@ class ClinicalTrialsAgent(BaseAgent):
     def name(self) -> str:
         return "Clinical Trials Agent"
 
-    def run(
-        self,
-        molecule: Optional[str] = None,
-        indication: Optional[str] = None,
-        phase: Optional[str] = None,
-        **_: Any,
-    ) -> Dict[str, Any]:
+    def run(self, user_query: str) -> Dict[str, Any]:
         """
-        Calls /api/clinical-trials?molecule=...&indication=...&phase=...
+        Uses LLM to extract molecule/indication/phase from query, calls API, and generates summary.
         """
-        url = f"{self.base_url}/api/clinical-trials"
-        params: Dict[str, Any] = {}
-        if molecule:
-            params["molecule"] = molecule
-        if indication:
-            params["indication"] = indication
-        if phase:
-            params["phase"] = phase
+        # 1. Parse query with LLM
+        extraction_prompt = (
+            "Extract clinical trial query parameters. "
+            "Return JSON: {{\"molecule\": \"<molecule_or_null>\", \"indication\": \"<indication_or_null>\", \"phase\": \"<phase_or_null>\"}}"
+        )
+        params = self._parse_query_with_llm(user_query, extraction_prompt)
+        molecule = params.get("molecule")
+        indication = params.get("indication")
+        phase = params.get("phase")
 
-        response = requests.get(url, params=params, timeout=10)
-        response.raise_for_status()
-        data = response.json()
+        # 2. Call API
+        api_params = {}
+        if molecule:
+            api_params["molecule"] = molecule
+        if indication:
+            api_params["indication"] = indication
+        if phase:
+            api_params["phase"] = phase
+
+        if not api_params:
+            return {
+                "agent": self.name,
+                "params": {},
+                "raw": {},
+                "summary": "Could not extract molecule or indication from query."
+            }
+
+        raw = self._get("/api/clinical-trials", api_params)
+
+        # 3. Generate summary with LLM
+        summary_prompt = (
+            "Summarize the clinical trial data. Highlight: "
+            "- Total and active trials"
+            "- Phase distribution"
+            "- Key ongoing trials with sponsors"
+            "- Geographic distribution"
+            "- Development timeline insights"
+        )
+        summary = self._generate_summary_with_llm(raw, summary_prompt)
+
         return {
             "agent": self.name,
-            "query": {
-                "molecule": molecule,
-                "indication": indication,
-                "phase": phase,
-            },
-            "raw": data,
+            "params": {"molecule": molecule, "indication": indication, "phase": phase},
+            "raw": raw,
+            "summary": summary,
         }
