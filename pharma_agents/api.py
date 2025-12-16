@@ -21,7 +21,7 @@ def run_agent(req: QueryRequest):
     This replaces main.py for hosting
     """
     result = master_agent.run(req.user_query)
-    return result["final_answer"]
+    return result
 
 @app.get("/health")
 def health():
