@@ -9,8 +9,7 @@ load_dotenv()
 def main():
     # Example query from portfolio planner
     user_query = (
-        "Evaluate the innovation opportunity for Semaglutide in obesity. "
-        
+        "Evaluate the innovation opportunity for imatinib in obesity. "
     )
 
     master = MasterAgent()
