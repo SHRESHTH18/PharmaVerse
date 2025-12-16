@@ -1,0 +1,892 @@
+================================================================================
+PHARMAVERSE - BACKEND INTEGRATION IMPLEMENTATION GUIDE
+================================================================================
+
+This guide explains how to integrate your existing backend (Python/FastAPI) 
+with the frontend website to implement all features.
+
+================================================================================
+1. API ENDPOINT INTEGRATION
+================================================================================
+
+1.1 CREATE MAIN ORCHESTRATION ENDPOINT
+---------------------------------------
+Endpoint: POST /api/orchestrate
+Purpose: Handle the "Launch Agent Run" button from Case Setup Screen
+
+Request Body:
+{
+  "molecule_name": "Semaglutide",
+  "indication": "Obesity",
+  "geography": "US, EU, India",
+  "timeframe": "2024-2026",
+  "strategic_question": "Find unmet needs and innovation options..."
+}
+
+Response:
+{
+  "session_id": "session_12345",
+  "status": "processing",
+  "agents_launched": ["iqvia", "exim", "patents", "trials", "web"]
+}
+
+Implementation:
+- Import your MasterAgent from pharma_agents/master_agent.py
+- Call master.run(user_query) where user_query combines all form fields
+- Return session_id immediately (don't wait for completion)
+- Use WebSockets or polling for status updates (see section 2)
+
+Code Example:
+@app.post("/api/orchestrate")
+async def orchestrate(request: Request):
+    data = await request.json()
+    query = f"Molecule: {data['molecule_name']}, Indication: {data['indication']}, "
+            f"Geography: {data['geography']}, Timeframe: {data['timeframe']}. "
+            f"Strategic Question: {data['strategic_question']}"
+    
+    master = MasterAgent()
+    session_id = str(uuid.uuid4())
+    
+    # Run asynchronously
+    asyncio.create_task(run_agents_async(session_id, master, query))
+    
+    return {"session_id": session_id, "status": "processing"}
+
+async def run_agents_async(session_id, master, query):
+    result = master.run(query)
+    # Store result in database/redis with session_id
+    store_session_result(session_id, result)
+
+
+1.2 CREATE WEBSOCKET ENDPOINT FOR REAL-TIME UPDATES
+---------------------------------------------------
+Purpose: Stream agent status updates and chat messages in real-time
+
+WebSocket: ws://localhost:8000/ws/{session_id}
+
+Messages from Server:
+{
+  "type": "agent_status",
+  "agent": "iqvia",
+  "status": "running",  // or "done", "error"
+  "message": "Analyzing market data..."
+}
+
+{
+  "type": "agent_result",
+  "agent": "iqvia",
+  "data": {...},  // Agent response data
+  "summary": "Market analysis complete..."
+}
+
+{
+  "type": "chat_message",
+  "sender": "master",
+  "message": "IQVIA Agent is analyzing market data..."
+}
+
+Implementation:
+- Use FastAPI WebSocket support
+- Store agent results as they complete
+- Broadcast updates to connected clients
+
+Code Example:
+from fastapi import WebSocket
+
+@app.websocket("/ws/{session_id}")
+async def websocket_endpoint(websocket: WebSocket, session_id: str):
+    await websocket.accept()
+    
+    # Send updates as agents complete
+    for agent_result in master.workflow.invoke_stream(initial_state):
+        await websocket.send_json({
+            "type": "agent_status",
+            "agent": agent_result["agent"],
+            "status": "done",
+            "data": agent_result
+        })
+
+
+1.3 CREATE CHAT ENDPOINT
+------------------------
+Endpoint: POST /api/chat
+Purpose: Handle user chat messages in workspace
+
+Request:
+{
+  "session_id": "session_12345",
+  "message": "What is the market size?"
+}
+
+Response:
+{
+  "response": "The market size for Semaglutide is $X million...",
+  "sender": "master",
+  "agents_triggered": ["iqvia"]
+}
+
+Implementation:
+- Extract session data from database
+- Pass user message to MasterAgent
+- MasterAgent decides which agents to call
+- Return formatted response
+
+Code Example:
+@app.post("/api/chat")
+async def chat(request: Request):
+    data = await request.json()
+    session_data = get_session(data["session_id"])
+    
+    master = MasterAgent()
+    # Use existing agent data if available, or trigger new agents
+    response = master.process_chat_message(
+        data["message"], 
+        session_data.get("agent_results", {})
+    )
+    
+    return {"response": response, "sender": "master"}
+
+
+1.4 CREATE GET SESSION DATA ENDPOINT
+------------------------------------
+Endpoint: GET /api/session/{session_id}
+Purpose: Load existing session data when user navigates back
+
+Response:
+{
+  "molecule": {...},
+  "agent_results": {
+    "iqvia": {...},
+    "exim": {...},
+    ...
+  },
+  "chat_history": [...],
+  "final_answer": "..."
+}
+
+Implementation:
+- Store session data in database (PostgreSQL/MongoDB) or Redis
+- Include molecule details, all agent results, chat history
+
+
+1.5 CREATE MOLECULE DOSSIER ENDPOINT
+------------------------------------
+Endpoint: GET /api/dossier/{session_id}
+Purpose: Get formatted dossier data for Screen 4
+
+Response:
+{
+  "molecule": {...},
+  "unmet_needs": [...],
+  "trials": [...],
+  "patents": [...],
+  "innovation_opportunities": [...]
+}
+
+Implementation:
+- Aggregate data from all agents
+- Use LLM to extract unmet needs from agent summaries
+- Format trials and patents into tables
+- Generate innovation opportunities using LLM based on all data
+
+Code Example:
+@app.get("/api/dossier/{session_id}")
+async def get_dossier(session_id: str):
+    session = get_session(session_id)
+    master = MasterAgent()
+    
+    # Use LLM to extract insights
+    dossier = master.generate_dossier(session["agent_results"])
+    return dossier
+
+
+1.6 UPDATE REPORT GENERATION ENDPOINT
+-------------------------------------
+Endpoint: POST /api/generate-report (already exists, but needs session data)
+
+Modify to accept:
+{
+  "session_id": "session_12345",
+  "report_type": "pdf",
+  "include_sections": [...]
+}
+
+Implementation:
+- Retrieve session data
+- Pass all agent results to ReportAgent
+- Include user_query, plan, worker_results in report_data
+- Return download link
+
+
+1.7 CREATE REPORTS ARCHIVE ENDPOINTS
+------------------------------------
+GET /api/reports - List all saved reports
+GET /api/reports/{report_id} - Get specific report
+DELETE /api/reports/{report_id} - Delete report
+
+Implementation:
+- Store reports metadata in database
+- Include molecule, date, geography, download links
+- Return paginated list
+
+
+================================================================================
+2. REAL-TIME UPDATES IMPLEMENTATION
+================================================================================
+
+2.1 WEBSOCKET INTEGRATION IN FRONTEND
+-------------------------------------
+Update app.js to connect to WebSocket:
+
+const ws = new WebSocket(`ws://localhost:8000/ws/${sessionId}`);
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  
+  if (data.type === 'agent_status') {
+    updateAgentStatus(data.agent, data.status);
+    if (data.message) {
+      addChatMessage(data.agent, data.message);
+    }
+  } else if (data.type === 'agent_result') {
+    AppState.agentData[data.agent] = data.data;
+    displayAgentInsights(data.agent);
+  }
+};
+
+
+2.2 POLLING ALTERNATIVE (if WebSockets not preferred)
+-----------------------------------------------------
+Create endpoint: GET /api/session/{session_id}/status
+
+Frontend polls every 2 seconds:
+setInterval(async () => {
+  const status = await fetch(`/api/session/${sessionId}/status`);
+  updateUI(status);
+}, 2000);
+
+
+================================================================================
+3. CHAT FUNCTIONALITY INTEGRATION
+================================================================================
+
+3.1 UPDATE sendChatMessage() FUNCTION
+-------------------------------------
+Replace the placeholder in app.js:
+
+async function sendChatMessage() {
+  const input = document.getElementById('chat-input');
+  const message = input.value.trim();
+  if (!message) return;
+  
+  addChatMessage('user', message);
+  input.value = '';
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/chat`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        session_id: AppState.sessionId,
+        message: message
+      })
+    });
+    
+    const data = await response.json();
+    addChatMessage(data.sender, data.response);
+    
+    // Update insights if agents were triggered
+    if (data.agents_triggered) {
+      data.agents_triggered.forEach(agent => {
+        loadAgentData(agent);
+      });
+    }
+  } catch (error) {
+    addChatMessage('master', 'Sorry, I encountered an error. Please try again.');
+  }
+}
+
+
+3.2 IMPLEMENT processMasterAgentQuery IN BACKEND
+------------------------------------------------
+In master_agent.py, add method:
+
+def process_chat_message(self, user_message: str, existing_agent_data: dict):
+    # Analyze message to decide which agents to call
+    # Use LLM to understand intent
+    
+    system_prompt = "You are the Master Agent. Analyze the user's question and decide which agents to call."
+    response = self.llm.chat(system_prompt, user_message)
+    
+    # Parse response and call relevant agents
+    # Return formatted answer
+
+
+================================================================================
+4. AGENT STATUS TRACKING INTEGRATION
+================================================================================
+
+4.1 MODIFY MASTER AGENT TO EMIT STATUS UPDATES
+-----------------------------------------------
+In master_agent.py, add callback mechanism:
+
+class MasterAgent:
+    def __init__(self, status_callback=None):
+        self.status_callback = status_callback
+    
+    def _run_workers(self, state):
+        if plan.get("call_iqvia"):
+            if self.status_callback:
+                self.status_callback("iqvia", "running")
+            result = self.iqvia_agent.run(...)
+            if self.status_callback:
+                self.status_callback("iqvia", "done", result)
+
+
+4.2 IMPLEMENT STATUS CALLBACK IN API
+------------------------------------
+In your FastAPI endpoint:
+
+def status_callback(agent, status, data=None):
+    # Emit WebSocket message or update database
+    if websocket:
+        websocket.send_json({
+            "type": "agent_status",
+            "agent": agent,
+            "status": status,
+            "data": data
+        })
+
+
+================================================================================
+5. MOLECULE DOSSIER DATA GENERATION
+================================================================================
+
+5.1 CREATE DOSSIER GENERATION METHOD
+------------------------------------
+In master_agent.py:
+
+def generate_dossier(self, agent_results: dict) -> dict:
+    # Extract unmet needs using LLM from all agent summaries
+    unmet_needs_prompt = f"Extract unmet patient needs from: {agent_results}"
+    unmet_needs = self.llm.chat(system_prompt, unmet_needs_prompt)
+    
+    # Format trials data
+    trials = agent_results.get("trials", {}).get("raw", {})
+    
+    # Format patents data
+    patents = agent_results.get("patents", {}).get("raw", {})
+    
+    # Generate innovation opportunities using LLM
+    innovation_prompt = f"Based on {agent_results}, suggest innovation opportunities"
+    innovations = self.llm.chat(system_prompt, innovation_prompt)
+    
+    return {
+        "unmet_needs": parse_bullet_points(unmet_needs),
+        "trials": format_trials_table(trials),
+        "patents": format_patents_table(patents),
+        "innovation_opportunities": parse_innovation_ideas(innovations)
+    }
+
+
+================================================================================
+6. REPORT ARCHIVE MANAGEMENT
+================================================================================
+
+6.1 CREATE DATABASE SCHEMA
+--------------------------
+Reports table:
+- report_id (PK)
+- session_id (FK)
+- molecule_name
+- indication
+- geography
+- generated_at
+- download_link_pdf
+- download_link_excel
+- tags (JSON array)
+
+6.2 SAVE REPORTS ON GENERATION
+-------------------------------
+In report generation endpoint:
+- After generating PDF, save metadata to database
+- Store download links
+- Extract tags from molecule/indication
+
+6.3 IMPLEMENT REPORTS ARCHIVE API
+---------------------------------
+@app.get("/api/reports")
+async def list_reports(skip: int = 0, limit: int = 20):
+    reports = db.query(Report).offset(skip).limit(limit).all()
+    return [format_report(r) for r in reports]
+
+
+================================================================================
+7. SESSION MANAGEMENT
+================================================================================
+
+7.1 STORE SESSION DATA
+----------------------
+Use Redis or Database to store:
+- session_id
+- molecule details
+- agent results (as they complete)
+- chat history
+- final_answer
+- report_id (if generated)
+
+7.2 SESSION TIMEOUT
+-------------------
+Set TTL on sessions (e.g., 24 hours)
+Clean up old sessions periodically
+
+Code Example:
+import redis
+r = redis.Redis()
+
+def store_session(session_id, data):
+    r.setex(f"session:{session_id}", 86400, json.dumps(data))
+
+
+================================================================================
+8. FRONTEND MODIFICATIONS NEEDED
+================================================================================
+
+8.1 UPDATE API_BASE_URL
+-----------------------
+In app.js, ensure API_BASE_URL points to your backend:
+const API_BASE_URL = 'http://localhost:8000';
+
+
+8.2 ADD SESSION ID TRACKING
+---------------------------
+Store session_id after orchestration:
+AppState.sessionId = response.session_id;
+
+
+8.3 UPDATE orchestrateAgents() FUNCTION
+---------------------------------------
+Replace with API call:
+
+async function orchestrateAgents() {
+  const response = await fetch(`${API_BASE_URL}/api/orchestrate`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(AppState.currentMolecule)
+  });
+  
+  const {session_id} = await response.json();
+  AppState.sessionId = session_id;
+  
+  // Connect WebSocket for updates
+  connectWebSocket(session_id);
+}
+
+
+8.4 UPDATE generateReport() FUNCTION
+------------------------------------
+Add session_id to request:
+
+async function generateReport() {
+  const response = await fetch(`${API_BASE_URL}/api/generate-report`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      session_id: AppState.sessionId,
+      report_type: "pdf",
+      topic: `${AppState.currentMolecule.name} Innovation Opportunities`
+    })
+  });
+}
+
+
+================================================================================
+9. ERROR HANDLING
+================================================================================
+
+9.1 ADD ERROR RESPONSES
+-----------------------
+All endpoints should return proper error responses:
+{
+  "error": "Error message",
+  "code": "ERROR_CODE"
+}
+
+9.2 FRONTEND ERROR HANDLING
+---------------------------
+Wrap all API calls in try-catch:
+try {
+  const response = await fetch(...);
+  if (!response.ok) throw new Error(response.statusText);
+  const data = await response.json();
+} catch (error) {
+  addChatMessage('master', 'An error occurred. Please try again.');
+  updateAgentStatus(agent, 'error');
+}
+
+
+================================================================================
+10. OPTIMIZATION TIPS
+================================================================================
+
+10.1 CACHING
+------------
+- Cache agent results in Redis
+- Cache LLM responses for similar queries
+- Cache report downloads
+
+10.2 ASYNC PROCESSING
+---------------------
+- Run agents in parallel where possible
+- Use background tasks for report generation
+- Stream results as they become available
+
+10.3 DATABASE INDEXING
+----------------------
+- Index session_id, molecule_name, generated_at
+- Use full-text search for report archive
+
+================================================================================
+11. TESTING CHECKLIST
+================================================================================
+
+□ Test Case Setup form submission
+□ Test agent orchestration endpoint
+□ Test WebSocket connection and messages
+□ Test chat endpoint with various queries
+□ Test report generation with session data
+□ Test dossier generation
+□ Test reports archive listing
+□ Test session persistence across page reloads
+□ Test error handling (API down, invalid session, etc.)
+□ Test concurrent users
+
+================================================================================
+END OF GUIDE
+================================================================================
+
+================================================================================
+INTEGRATION LAYER - BACKEND & FRONTEND BRIDGE
+================================================================================
+
+This section provides the minimal integration code to connect backend and 
+frontend without modifying either codebase significantly.
+
+================================================================================
+A. CREATE ADAPTER/BRIDGE SERVICE (adapter.py)
+================================================================================
+
+from fastapi import FastAPI, WebSocket, Request
+from fastapi.middleware.cors import CORSMiddleware
+import asyncio
+import json
+import uuid
+from typing import Dict, Optional
+import redis
+
+app = FastAPI()
+
+# Enable CORS for frontend
+app.add_middleware(
+  CORSMiddleware,
+  allow_origins=["*"],
+  allow_credentials=True,
+  allow_methods=["*"],
+  allow_headers=["*"],
+)
+
+# Redis for session management
+redis_client = redis.Redis(host='localhost', port=6379, decode_responses=True)
+
+# Active WebSocket connections
+active_connections: Dict[str, WebSocket] = {}
+
+# Import your existing backend
+from pharma_agents.master_agent import MasterAgent
+
+================================================================================
+B. WRAPPER FUNCTIONS FOR EXISTING BACKEND
+================================================================================
+
+async def run_master_agent_async(session_id: str, query: str):
+  """Wrapper to run existing MasterAgent asynchronously"""
+  try:
+    master = MasterAgent()
+    
+    # Create callback to emit WebSocket updates
+    async def emit_status(agent_name: str, status: str, data: Optional[dict] = None):
+      if session_id in active_connections:
+        await active_connections[session_id].send_json({
+          "type": "agent_status",
+          "agent": agent_name,
+          "status": status,
+          "data": data,
+          "timestamp": str(datetime.now())
+        })
+    
+    # Run your existing master agent
+    # Modify master agent to accept callback (or wrap results)
+    result = master.run(query)
+    
+    # Store results in Redis with session
+    session_data = redis_client.get(f"session:{session_id}")
+    session_data = json.loads(session_data) if session_data else {}
+    session_data["agent_results"] = result
+    session_data["status"] = "completed"
+    redis_client.setex(f"session:{session_id}", 86400, json.dumps(session_data))
+    
+    # Notify frontend of completion
+    if session_id in active_connections:
+      await active_connections[session_id].send_json({
+        "type": "workflow_complete",
+        "status": "success",
+        "results": result
+      })
+  
+  except Exception as e:
+    if session_id in active_connections:
+      await active_connections[session_id].send_json({
+        "type": "error",
+        "message": str(e)
+      })
+
+================================================================================
+C. API ENDPOINTS (ADD TO adapter.py)
+================================================================================
+
+@app.post("/api/orchestrate")
+async def orchestrate(request: Request):
+  """Main orchestration endpoint - matches frontend expectations"""
+  data = await request.json()
+  
+  # Create session
+  session_id = str(uuid.uuid4())
+  session_data = {
+    "molecule_name": data.get("molecule_name"),
+    "indication": data.get("indication"),
+    "geography": data.get("geography"),
+    "timeframe": data.get("timeframe"),
+    "strategic_question": data.get("strategic_question"),
+    "status": "processing",
+    "created_at": str(datetime.now())
+  }
+  
+  redis_client.setex(f"session:{session_id}", 86400, json.dumps(session_data))
+  
+  # Build query for master agent
+  query = f"""
+  Analyze the following pharmaceutical opportunity:
+  Molecule: {data.get('molecule_name')}
+  Indication: {data.get('indication')}
+  Geography: {data.get('geography')}
+  Timeframe: {data.get('timeframe')}
+  Strategic Question: {data.get('strategic_question')}
+  """
+  
+  # Run agents asynchronously
+  asyncio.create_task(run_master_agent_async(session_id, query))
+  
+  return {
+    "session_id": session_id,
+    "status": "processing",
+    "agents_launched": ["iqvia", "exim", "patents", "trials", "web"]
+  }
+
+@app.websocket("/ws/{session_id}")
+async def websocket_endpoint(websocket: WebSocket, session_id: str):
+  """WebSocket for real-time updates"""
+  await websocket.accept()
+  active_connections[session_id] = websocket
+  
+  try:
+    while True:
+      # Keep connection alive
+      data = await websocket.receive_text()
+      # Echo or handle incoming messages if needed
+  except Exception as e:
+    print(f"WebSocket error: {e}")
+  finally:
+    del active_connections[session_id]
+
+@app.post("/api/chat")
+async def chat_endpoint(request: Request):
+  """Chat endpoint - integrates with master agent"""
+  data = await request.json()
+  session_id = data.get("session_id")
+  message = data.get("message")
+  
+  # Get existing session data
+  session_data = redis_client.get(f"session:{session_id}")
+  session_data = json.loads(session_data) if session_data else {}
+  
+  # Use your existing master agent to process message
+  master = MasterAgent()
+  response = master.process_chat_message(message, session_data.get("agent_results", {}))
+  
+  return {
+    "response": response,
+    "sender": "master",
+    "agents_triggered": []
+  }
+
+@app.get("/api/session/{session_id}")
+async def get_session_data(session_id: str):
+  """Retrieve session data"""
+  session_data = redis_client.get(f"session:{session_id}")
+  return json.loads(session_data) if session_data else {"error": "Session not found"}
+
+@app.get("/api/dossier/{session_id}")
+async def get_dossier(session_id: str):
+  """Get formatted dossier from agent results"""
+  session_data = redis_client.get(f"session:{session_id}")
+  session_data = json.loads(session_data) if session_data else {}
+  
+  master = MasterAgent()
+  dossier = master.generate_dossier(session_data.get("agent_results", {}))
+  
+  return dossier
+
+@app.post("/api/generate-report")
+async def generate_report(request: Request):
+  """Generate report from session data"""
+  data = await request.json()
+  session_id = data.get("session_id")
+  
+  session_data = redis_client.get(f"session:{session_id}")
+  session_data = json.loads(session_data) if session_data else {}
+  
+  # Use existing report generation
+  from pharma_agents.report_agent import ReportAgent
+  
+  report_agent = ReportAgent()
+  report_path = report_agent.generate(
+    data=session_data.get("agent_results", {}),
+    molecule=session_data.get("molecule_name"),
+    report_type=data.get("report_type", "pdf")
+  )
+  
+  return {"report_path": report_path, "download_link": f"/downloads/{report_path}"}
+
+================================================================================
+D. FRONTEND MODIFICATIONS (app.js updates)
+================================================================================
+
+// Add at top of app.js
+const API_BASE_URL = 'http://localhost:8000';
+let wsConnection = null;
+
+// Modify orchestrateAgents function
+async function orchestrateAgents() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/orchestrate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        molecule_name: AppState.currentMolecule.moleculeName,
+        indication: AppState.currentMolecule.indication,
+        geography: AppState.currentMolecule.geography,
+        timeframe: AppState.currentMolecule.timeframe,
+        strategic_question: AppState.currentMolecule.strategicQuestion
+      })
+    });
+    
+    const result = await response.json();
+    AppState.sessionId = result.session_id;
+    
+    // Connect WebSocket
+    connectWebSocket(result.session_id);
+    
+    // Transition to next screen
+    showScreen('screen-2');
+    addChatMessage('master', 'Agents launched. Analyzing data...');
+    
+  } catch (error) {
+    console.error('Orchestration error:', error);
+    addChatMessage('master', 'Error launching agents. Please try again.');
+  }
+}
+
+// Add WebSocket connection handler
+function connectWebSocket(sessionId) {
+  wsConnection = new WebSocket(`ws://localhost:8000/ws/${sessionId}`);
+  
+  wsConnection.onopen = () => console.log('WebSocket connected');
+  
+  wsConnection.onmessage = (event) => {
+    const message = JSON.parse(event.data);
+    
+    if (message.type === 'agent_status') {
+      updateAgentStatus(message.agent, message.status);
+      if (message.data) addChatMessage(message.agent, JSON.stringify(message.data));
+    } else if (message.type === 'workflow_complete') {
+      AppState.agentData = message.results;
+      addChatMessage('master', 'All agents completed. Generating insights...');
+    }
+  };
+}
+
+// Update sendChatMessage function
+async function sendChatMessage() {
+  const input = document.getElementById('chat-input');
+  const message = input.value.trim();
+  if (!message) return;
+  
+  addChatMessage('user', message);
+  input.value = '';
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: AppState.sessionId,
+        message: message
+      })
+    });
+    
+    const result = await response.json();
+    addChatMessage('master', result.response);
+    
+  } catch (error) {
+    addChatMessage('master', 'Error processing message.');
+  }
+}
+
+// Update generateReport function
+async function generateReport() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/generate-report`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: AppState.sessionId,
+        report_type: 'pdf'
+      })
+    });
+    
+    const result = await response.json();
+    window.location.href = result.download_link;
+    
+  } catch (error) {
+    alert('Error generating report');
+  }
+}
+
+================================================================================
+E. SETUP INSTRUCTIONS
+================================================================================
+
+1. Install dependencies:
+   pip install fastapi uvicorn redis python-multipart
+
+2. Ensure Redis is running:
+   redis-server
+
+3. Update your frontend's API_BASE_URL to match backend URL
+
+4. Run adapter server:
+   uvicorn adapter:app --reload --port 8000
+
+5. Your existing backend agents remain unchanged - adapter bridges them
+
+================================================================================

@@ -1,9 +1,14 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Optional, List
+from fastapi.responses import Response
+from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 import json
 from pathlib import Path
+import io
+
+# In-memory storage for report data (in production, use a database)
+report_storage: Dict[str, Dict[str, Any]] = {}
 
 app = FastAPI()
 
@@ -488,10 +493,24 @@ def get_web_intelligence(
 def generate_report(
     report_type: str = Query(..., description="pdf or excel"),
     topic: str = Query(..., description="Report topic/title"),
-    include_sections: Optional[List[str]] = Query(None, description="Sections to include")
+    include_sections: Optional[List[str]] = Query(None, description="Sections to include"),
+    report_data: Optional[Dict[str, Any]] = Body(None, description="Detailed agent data")
 ):
-    """Formats the synthesized response into a polished PDF or Excel report"""
+    """Formats the synthesized response into a polished PDF or Excel report with all detailed agent data"""
     report_id = f"RPT_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    
+    # Store report data for PDF generation
+    if report_data:
+        report_storage[report_id] = {
+            "topic": topic,
+            "report_data": report_data,
+            "generated_at": datetime.now().isoformat()
+        }
+        agent_count = len(report_data.get("detailed_agent_responses", []))
+        estimated_pages = 5 + (agent_count * 8) + 10
+    else:
+        agent_count = 0
+        estimated_pages = 24
     
     if report_type.lower() == "pdf":
         return {
@@ -503,13 +522,17 @@ def generate_report(
             "sections_included": include_sections or [
                 "Executive Summary",
                 "Market Analysis",
-                "Competitive Landscape",
+                "EXIM / Sourcing",
                 "Clinical Pipeline",
-                "Patent Status",
-                "Recommendations"
+                "Patent Landscape",
+                "Internal Strategy Insights",
+                "Guidelines & Web Intelligence",
+                "Recommendations",
+                "Detailed Agent Responses",
+                "Raw JSON Data"
             ],
-            "page_count": 24,
-            "file_size_mb": 3.2,
+            "page_count": estimated_pages,
+            "file_size_mb": round(estimated_pages * 0.15, 2),
             "download_link": f"/downloads/reports/{report_id}.pdf",
             "preview_url": f"/preview/reports/{report_id}",
             "charts_included": [
@@ -575,6 +598,175 @@ def generate_report(
     return {
         "error": "Invalid report_type. Choose 'pdf' or 'excel'"
     }
+
+
+# ============================================================================
+# PDF Generation Function
+# ============================================================================
+def generate_pdf_content(report_id: str, topic: str, report_data: Dict[str, Any]) -> bytes:
+    """Generate a proper PDF file using reportlab"""
+    try:
+        from reportlab.lib.pagesizes import letter
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Preformatted
+        from reportlab.lib import colors
+        
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=72, leftMargin=72,
+                                topMargin=72, bottomMargin=18)
+        story = []
+        styles = getSampleStyleSheet()
+        
+        # Custom styles
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            textColor=colors.HexColor('#1a1a1a'),
+            spaceAfter=30,
+            alignment=1,
+        )
+        
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=16,
+            textColor=colors.HexColor('#2c3e50'),
+            spaceAfter=12,
+            spaceBefore=12,
+        )
+        
+        # Cover page
+        story.append(Spacer(1, 2*inch))
+        story.append(Paragraph("PharmaVerse Innovation Assessment", title_style))
+        story.append(Spacer(1, 0.5*inch))
+        story.append(Paragraph(f"<b>{topic}</b>", styles['Heading2']))
+        story.append(Spacer(1, 0.3*inch))
+        story.append(Paragraph(f"Report ID: {report_id}", styles['Normal']))
+        story.append(Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Normal']))
+        story.append(PageBreak())
+        
+        # User Query
+        story.append(Paragraph("Executive Summary", heading_style))
+        user_query = report_data.get("user_query", "N/A")
+        story.append(Paragraph(f"<b>User Query:</b> {user_query}", styles['Normal']))
+        story.append(Spacer(1, 0.4*inch))
+        
+        # Agent Responses in bullet points format
+        story.append(Paragraph("Detailed Agent Responses", heading_style))
+        agent_responses = report_data.get("detailed_agent_responses", [])
+        for idx, agent_data in enumerate(agent_responses, 1):
+            agent_name = agent_data.get("agent_name", "Unknown Agent")
+            story.append(Paragraph(f"<b>{idx}. {agent_name.upper()}</b>", heading_style))
+            story.append(Spacer(1, 0.1*inch))
+            
+            # Summary/Response formatted as bullet points
+            summary = agent_data.get("summary", "")
+            if summary:
+                story.append(Paragraph("<b>Key Findings:</b>", styles['Normal']))
+                story.append(Spacer(1, 0.1*inch))
+                
+                # Convert summary to bullet points
+                summary_lines = summary.split('\n')
+                bullet_points = []
+                
+                for line in summary_lines:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    
+                    # Check if line already starts with bullet-like markers
+                    if line.startswith(('•', '-', '*', '→', '→')):
+                        bullet_points.append(line)
+                    # Check if line looks like a numbered list
+                    elif line and line[0].isdigit() and ('.' in line[:5] or ')' in line[:5]):
+                        bullet_points.append(f"• {line.lstrip('0123456789.) ')}")
+                    # Check if line contains key indicators (colons, dashes)
+                    elif ':' in line and len(line.split(':')) == 2:
+                        parts = line.split(':', 1)
+                        bullet_points.append(f"<b>{parts[0].strip()}:</b> {parts[1].strip()}")
+                    # Regular paragraph - split by sentences if too long
+                    elif len(line) > 150:
+                        sentences = line.split('. ')
+                        for sent in sentences:
+                            if sent.strip():
+                                bullet_points.append(f"• {sent.strip()}")
+                    else:
+                        bullet_points.append(f"• {line}")
+                
+                # Add bullet points to PDF
+                for point in bullet_points:
+                    if point.strip():
+                        clean_point = point.replace('<', '&lt;').replace('>', '&gt;')
+                        # Handle bold formatting
+                        if '<b>' in point:
+                            story.append(Paragraph(clean_point, styles['Normal']))
+                        else:
+                            story.append(Paragraph(clean_point, styles['Normal']))
+                
+                story.append(Spacer(1, 0.3*inch))
+            else:
+                story.append(Paragraph("• No response generated by this agent.", styles['Normal']))
+                story.append(Spacer(1, 0.3*inch))
+            
+            if idx < len(agent_responses):
+                story.append(PageBreak())
+        
+        doc.build(story)
+        buffer.seek(0)
+        return buffer.getvalue()
+    
+    except ImportError:
+        # Fallback: Generate minimal valid PDF
+        gen_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        topic_safe = topic.replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)')
+        report_id_safe = report_id.replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)')
+        gen_time_safe = gen_time.replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)')
+        
+        pdf_lines = [
+            "%PDF-1.4",
+            "1 0 obj<<</Type/Catalog/Pages 2 0 R>>endobj",
+            "2 0 obj<<</Type/Pages/Kids[3 0 R]/Count 1>>endobj",
+            "3 0 obj<<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj",
+            "4 0 obj<<</Length 200>>stream",
+            f"BT/F1 14 Tf 100 750 Td({topic_safe})Tj 0 -25 Td/F1 12 Tf(Report ID: {report_id_safe})Tj 0 -20 Td(Generated: {gen_time_safe})Tj ET",
+            "endstream endobj",
+            "5 0 obj<<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj",
+            "xref 0 6",
+            "trailer<</Size 6/Root 1 0 R>>startxref 400 %%EOF"
+        ]
+        return '\n'.join(pdf_lines).encode('latin-1')
+
+
+@app.get("/downloads/reports/{report_id}.pdf")
+def download_pdf_report(report_id: str):
+    """Serves the generated PDF report for download"""
+    if report_id not in report_storage:
+        return Response(
+            content=json.dumps({"error": "Report not found"}).encode(),
+            media_type="application/json",
+            status_code=404
+        )
+    
+    stored_data = report_storage[report_id]
+    topic = stored_data.get("topic", "Pharma Innovation Assessment")
+    report_data = stored_data.get("report_data", {})
+    
+    try:
+        pdf_content = generate_pdf_content(report_id, topic, report_data)
+    except Exception as e:
+        # Fallback PDF
+        pdf_content = f"%PDF-1.4\n1 0 obj<<</Type/Catalog>>endobj\nxref 0 1\ntrailer<</Size 1/Root 1 0 R>>startxref 50 %%EOF".encode()
+    
+    return Response(
+        content=pdf_content,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{report_id}.pdf"',
+            "Content-Length": str(len(pdf_content))
+        }
+    )
 
 
 # ============================================================================
