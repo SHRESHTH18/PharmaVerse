@@ -699,9 +699,19 @@ async function generateReport() {
         updateAgentStatus('report', 'done');
         
         if (report.download_link) {
-            const fullUrl = `${MASTER_AGENT_URL}${report.download_link}`;
+            // download_link is already a fully-qualified URL from the backend
+            const fullUrl = report.download_link;
             addChatMessage('report', `✅ Report ready! <a href="${fullUrl}" target="_blank" class="text-purple-600 underline font-semibold">Download PDF</a>`);
-            window.open(fullUrl, '_blank');
+
+            // Trigger a direct download in the browser
+            const link = document.createElement('a');
+            link.href = fullUrl;
+            link.target = '_blank';
+            // Let the browser choose filename; download attribute hints download
+            link.setAttribute('download', '');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         } else {
             addChatMessage('report', `Report generated. ID: ${report.report_id || 'N/A'}`);
         }
