@@ -5,7 +5,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 # Import both apps
-from mock_api import app as mock_app, report_storage as mock_report_storage
+from mock_api import app as mock_app ,report_storage as mock_report_storage
 from api_integration import app as integration_app, sessions, active_websockets
 
 # Create main app - use mock_app as base since it has all the agent endpoints
@@ -61,7 +61,7 @@ main_app.post("/api/chat")(api_integration.chat)
 main_app.get("/api/session/{session_id}")(api_integration.get_session_data)
 main_app.get("/api/session/{session_id}/status")(api_integration.get_session_status)
 main_app.get("/api/dossier/{session_id}")(api_integration.get_dossier)
-main_app.post("/api/generate-report")(api_integration.generate_report_integration)
+# main_app.post("/api/generate-report")(api_integration.generate_report_int
 main_app.get("/api/reports")(api_integration.list_reports)
 main_app.get("/api/reports/{report_id}")(api_integration.get_report)
 main_app.get("/downloads/reports/{report_id}.pdf")(api_integration.download_pdf_report_integration)

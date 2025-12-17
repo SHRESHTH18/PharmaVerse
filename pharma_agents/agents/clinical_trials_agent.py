@@ -58,3 +58,4 @@ class ClinicalTrialsAgent(BaseAgent):
             "raw": raw,
             "summary": summary,
         }
+    

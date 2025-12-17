@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Query, Body
+from fastapi import FastAPI, Query, Body,Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from typing import Optional, List, Dict, Any
@@ -6,6 +6,10 @@ from datetime import datetime, timedelta
 import json
 from pathlib import Path
 import io
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Image
+from reportlab.lib.styles import getSampleStyleSheet
+from matplotlib import pyplot as plt
+
 
 # In-memory storage for report data (in production, use a database)
 report_storage: Dict[str, Dict[str, Any]] = {}
@@ -485,289 +489,452 @@ def get_web_intelligence(
         "source_types_available": ["guidelines", "publications", "news", "patient_forums"]
     }
 
+# import uuid
+# import os
+# import io
+# from pathlib import Path
+# from datetime import datetime
+# from typing import Dict, Any
+
+from fastapi import Query, Body
+from fastapi.responses import FileResponse
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, PageBreak, Image
+)
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib import colors
+import matplotlib.pyplot as plt
 
 # ============================================================================
-# g. Report Generator Agent
+# Storage
 # ============================================================================
-@app.post("/api/generate-report")
-def generate_report(
-    report_type: str = Query(..., description="pdf or excel"),
-    topic: str = Query(..., description="Report topic/title"),
-    include_sections: Optional[List[str]] = Query(None, description="Sections to include"),
-    report_data: Optional[Dict[str, Any]] = Body(None, description="Detailed agent data")
-):
-    """Formats the synthesized response into a polished PDF or Excel report with all detailed agent data"""
-    report_id = f"RPT_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-    
-    # Store report data for PDF generation
-    if report_data:
-        report_storage[report_id] = {
-            "topic": topic,
-            "report_data": report_data,
-            "generated_at": datetime.now().isoformat()
-        }
-        agent_count = len(report_data.get("detailed_agent_responses", []))
-        estimated_pages = 5 + (agent_count * 8) + 10
+REPORT_DIR = Path("reports/generated")
+CHART_DIR = REPORT_DIR / "charts"
+REPORT_DIR.mkdir(parents=True, exist_ok=True)
+CHART_DIR.mkdir(parents=True, exist_ok=True)
+
+# ============================================================================
+# Chart Generator
+# ============================================================================
+# def generate_chart(chart: Dict[str, Any], path: Path):
+#     labels = chart["data"]["labels"]
+#     values = chart["data"]["values"]
+
+#     if not labels or not values:
+#         return None
+
+#     plt.figure(figsize=(6, 4))
+
+#     ctype = chart["recommended_chart"]
+#     if ctype == "bar":
+#         plt.bar(labels, values)
+#     elif ctype == "line":
+#         plt.plot(labels, values, marker="o")
+#     elif ctype == "pie":
+#         plt.pie(values, labels=labels, autopct="%1.1f%%")
+
+#     plt.title(chart["title"])
+#     plt.tight_layout()
+#     plt.savefig(path)
+#     plt.close()
+#     return path
+def generate_chart(chart: Dict[str, Any], path: Path):
+    labels = chart["data"].get("labels", [])
+    values = chart["data"].get("values", [])
+
+    # ✅ HARD VALIDATION
+    numeric_values = []
+    for v in values:
+        try:
+            numeric_values.append(float(v))
+        except (ValueError, TypeError):
+            # ❌ Skip charts with invalid numeric data
+            return None
+
+    if not labels or not numeric_values:
+        return None
+
+    plt.figure(figsize=(6, 4))
+
+    ctype = chart.get("recommended_chart")
+
+    if ctype == "bar":
+        plt.bar(labels, numeric_values)
+    elif ctype == "line":
+        plt.plot(labels, numeric_values, marker="o")
+    elif ctype == "pie":
+        # pie cannot have negatives
+        if any(v < 0 for v in numeric_values):
+            return None
+        plt.pie(numeric_values, labels=labels, autopct="%1.1f%%")
     else:
-        agent_count = 0
-        estimated_pages = 24
-    
-    if report_type.lower() == "pdf":
-        return {
-            "report_id": report_id,
-            "report_type": "PDF",
-            "topic": topic,
-            "status": "Generated",
-            "generated_at": datetime.now().isoformat(),
-            "sections_included": include_sections or [
-                "Executive Summary",
-                "Market Analysis",
-                "EXIM / Sourcing",
-                "Clinical Pipeline",
-                "Patent Landscape",
-                "Internal Strategy Insights",
-                "Guidelines & Web Intelligence",
-                "Recommendations",
-                "Detailed Agent Responses",
-                "Raw JSON Data"
-            ],
-            "page_count": estimated_pages,
-            "file_size_mb": round(estimated_pages * 0.15, 2),
-            "download_link": f"/downloads/reports/{report_id}.pdf",
-            "preview_url": f"/preview/reports/{report_id}",
-            "charts_included": [
-                "Market Size Trend Chart",
-                "CAGR Comparison Bar Chart",
-                "Phase Distribution Pie Chart",
-                "Patent Expiry Timeline"
-            ],
-            "tables_included": [
-                "Market Size by Geography",
-                "Top 10 Competitors",
-                "Active Clinical Trials",
-                "Patent Status Summary"
-            ]
-        }
-    elif report_type.lower() == "excel":
-        return {
-            "report_id": report_id,
-            "report_type": "Excel",
-            "topic": topic,
-            "status": "Generated",
-            "generated_at": datetime.now().isoformat(),
-            "worksheets": [
-                {
-                    "name": "Summary Dashboard",
-                    "type": "Charts & KPIs",
-                    "description": "Executive summary with key metrics and visualizations"
-                },
-                {
-                    "name": "Market Data",
-                    "type": "Data Table",
-                    "rows": 156,
-                    "description": "Detailed market size, sales, and CAGR data by geography"
-                },
-                {
-                    "name": "Clinical Trials",
-                    "type": "Data Table",
-                    "rows": 47,
-                    "description": "Active trials with phase, sponsor, and timeline information"
-                },
-                {
-                    "name": "Patent Landscape",
-                    "type": "Data Table",
-                    "rows": 23,
-                    "description": "Patent status, expiry dates, and FTO analysis"
-                },
-                {
-                    "name": "EXIM Data",
-                    "type": "Data Table",
-                    "rows": 89,
-                    "description": "Import/export volumes and trade flow analysis"
-                }
-            ],
-            "file_size_mb": 1.8,
-            "download_link": f"/downloads/reports/{report_id}.xlsx",
-            "features": [
-                "Pivot tables enabled",
-                "Interactive charts",
-                "Data validation",
-                "Conditional formatting"
-            ]
-        }
-    return {
-        "error": "Invalid report_type. Choose 'pdf' or 'excel'"
-    }
+        return None
 
+    plt.title(chart.get("title", ""))
+    plt.tight_layout()
+    plt.savefig(str(path))
+    plt.close()
+    return path
 
 # ============================================================================
-# PDF Generation Function
+# PDF Generator
 # ============================================================================
-def generate_pdf_content(report_id: str, topic: str, report_data: Dict[str, Any]) -> bytes:
-    """Generate a proper PDF file using reportlab"""
-    try:
-        from reportlab.lib.pagesizes import letter
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.units import inch
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Preformatted
-        from reportlab.lib import colors
-        
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=72, leftMargin=72,
-                                topMargin=72, bottomMargin=18)
-        story = []
-        styles = getSampleStyleSheet()
-        
-        # Custom styles
-        title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Heading1'],
-            fontSize=24,
-            textColor=colors.HexColor('#1a1a1a'),
-            spaceAfter=30,
-            alignment=1,
-        )
-        
-        heading_style = ParagraphStyle(
-            'CustomHeading',
-            parent=styles['Heading2'],
-            fontSize=16,
-            textColor=colors.HexColor('#2c3e50'),
-            spaceAfter=12,
-            spaceBefore=12,
-        )
-        
-        # Cover page
-        story.append(Spacer(1, 2*inch))
-        story.append(Paragraph("PharmaVerse Innovation Assessment", title_style))
-        story.append(Spacer(1, 0.5*inch))
-        story.append(Paragraph(f"<b>{topic}</b>", styles['Heading2']))
-        story.append(Spacer(1, 0.3*inch))
-        story.append(Paragraph(f"Report ID: {report_id}", styles['Normal']))
-        story.append(Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Normal']))
-        story.append(PageBreak())
-        
-        # User Query
-        story.append(Paragraph("Executive Summary", heading_style))
-        user_query = report_data.get("user_query", "N/A")
-        story.append(Paragraph(f"<b>User Query:</b> {user_query}", styles['Normal']))
-        story.append(Spacer(1, 0.4*inch))
-        
-        # Agent Responses in bullet points format
-        story.append(Paragraph("Detailed Agent Responses", heading_style))
-        agent_responses = report_data.get("detailed_agent_responses", [])
-        for idx, agent_data in enumerate(agent_responses, 1):
-            agent_name = agent_data.get("agent_name", "Unknown Agent")
-            story.append(Paragraph(f"<b>{idx}. {agent_name.upper()}</b>", heading_style))
-            story.append(Spacer(1, 0.1*inch))
-            
-            # Summary/Response formatted as bullet points
-            summary = agent_data.get("summary", "")
-            if summary:
-                story.append(Paragraph("<b>Key Findings:</b>", styles['Normal']))
-                story.append(Spacer(1, 0.1*inch))
-                
-                # Convert summary to bullet points
-                summary_lines = summary.split('\n')
-                bullet_points = []
-                
-                for line in summary_lines:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    
-                    # Check if line already starts with bullet-like markers
-                    if line.startswith(('•', '-', '*', '→', '→')):
-                        bullet_points.append(line)
-                    # Check if line looks like a numbered list
-                    elif line and line[0].isdigit() and ('.' in line[:5] or ')' in line[:5]):
-                        bullet_points.append(f"• {line.lstrip('0123456789.) ')}")
-                    # Check if line contains key indicators (colons, dashes)
-                    elif ':' in line and len(line.split(':')) == 2:
-                        parts = line.split(':', 1)
-                        bullet_points.append(f"<b>{parts[0].strip()}:</b> {parts[1].strip()}")
-                    # Regular paragraph - split by sentences if too long
-                    elif len(line) > 150:
-                        sentences = line.split('. ')
-                        for sent in sentences:
-                            if sent.strip():
-                                bullet_points.append(f"• {sent.strip()}")
-                    else:
-                        bullet_points.append(f"• {line}")
-                
-                # Add bullet points to PDF
-                for point in bullet_points:
-                    if point.strip():
-                        clean_point = point.replace('<', '&lt;').replace('>', '&gt;')
-                        # Handle bold formatting
-                        if '<b>' in point:
-                            story.append(Paragraph(clean_point, styles['Normal']))
-                        else:
-                            story.append(Paragraph(clean_point, styles['Normal']))
-                
-                story.append(Spacer(1, 0.3*inch))
-            else:
-                story.append(Paragraph("• No response generated by this agent.", styles['Normal']))
-                story.append(Spacer(1, 0.3*inch))
-            
-            if idx < len(agent_responses):
-                story.append(PageBreak())
-        
-        doc.build(story)
-        buffer.seek(0)
-        return buffer.getvalue()
-    
-    except ImportError:
-        # Fallback: Generate minimal valid PDF
-        gen_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        topic_safe = topic.replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)')
-        report_id_safe = report_id.replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)')
-        gen_time_safe = gen_time.replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)')
-        
-        pdf_lines = [
-            "%PDF-1.4",
-            "1 0 obj<<</Type/Catalog/Pages 2 0 R>>endobj",
-            "2 0 obj<<</Type/Pages/Kids[3 0 R]/Count 1>>endobj",
-            "3 0 obj<<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj",
-            "4 0 obj<<</Length 200>>stream",
-            f"BT/F1 14 Tf 100 750 Td({topic_safe})Tj 0 -25 Td/F1 12 Tf(Report ID: {report_id_safe})Tj 0 -20 Td(Generated: {gen_time_safe})Tj ET",
-            "endstream endobj",
-            "5 0 obj<<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj",
-            "xref 0 6",
-            "trailer<</Size 6/Root 1 0 R>>startxref 400 %%EOF"
-        ]
-        return '\n'.join(pdf_lines).encode('latin-1')
+# def generate_pdf(report_id: str, report_data: Dict[str, Any], output_path: Path):
+#     styles = getSampleStyleSheet()
+#     styles.add(ParagraphStyle(
+#         name="AgentHeader",
+#         fontSize=18,
+#         spaceAfter=12,
+#         textColor=colors.HexColor("#2c3e50")
+#     ))
 
+#     doc = SimpleDocTemplate(
+#         output_path,
+#         pagesize=A4,
+#         leftMargin=40,
+#         rightMargin=40,
+#         topMargin=40,
+#         bottomMargin=40,
+#     )
 
-@app.get("/downloads/reports/{report_id}.pdf")
-def download_pdf_report(report_id: str):
-    """Serves the generated PDF report for download"""
-    if report_id not in report_storage:
-        return Response(
-            content=json.dumps({"error": "Report not found"}).encode(),
-            media_type="application/json",
-            status_code=404
-        )
-    
-    stored_data = report_storage[report_id]
-    topic = stored_data.get("topic", "Pharma Innovation Assessment")
-    report_data = stored_data.get("report_data", {})
-    
-    try:
-        pdf_content = generate_pdf_content(report_id, topic, report_data)
-    except Exception as e:
-        # Fallback PDF
-        pdf_content = f"%PDF-1.4\n1 0 obj<<</Type/Catalog>>endobj\nxref 0 1\ntrailer<</Size 1/Root 1 0 R>>startxref 50 %%EOF".encode()
-    
-    return Response(
-        content=pdf_content,
-        media_type="application/pdf",
-        headers={
-            "Content-Disposition": f'attachment; filename="{report_id}.pdf"',
-            "Content-Length": str(len(pdf_content))
-        }
+#     story = []
+
+#     # Cover
+#     story.append(Paragraph("PharmaVerse Innovation Assessment", styles["Title"]))
+#     story.append(Spacer(1, 0.3 * inch))
+#     story.append(Paragraph(report_data["topic"], styles["Heading2"]))
+#     story.append(Spacer(1, 0.2 * inch))
+#     story.append(Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}", styles["Normal"]))
+#     story.append(PageBreak())
+
+#     # Executive Summary
+#     story.append(Paragraph("Executive Summary", styles["Heading1"]))
+#     story.append(Paragraph(report_data.get("final_answer", ""), styles["Normal"]))
+#     story.append(PageBreak())
+
+#     demographics = report_data.get("demographics", {}).get("agents", {})
+
+#     # Agent Sections
+#     for agent in report_data["worker_results"]:
+#         agent_name = agent["agent"]
+#         story.append(Paragraph(agent_name, styles["AgentHeader"]))
+#         story.append(Paragraph(agent["summary"], styles["Normal"]))
+#         story.append(Spacer(1, 0.2 * inch))
+
+#         for chart in demographics.get(agent_name, []):
+#             img_path = CHART_DIR / f"{report_id}_{chart['id']}.png"
+#             saved = generate_chart(chart, img_path)
+#             if saved:
+#                 story.append(Paragraph(chart["title"], styles["Heading3"]))
+#                 story.append(Paragraph(chart["insight"], styles["Italic"]))
+#                 story.append(Image(saved, width=5 * inch, height=3 * inch))
+#                 story.append(Spacer(1, 0.3 * inch))
+
+#         story.append(PageBreak())
+
+#     doc.build(story)
+def generate_pdf(report_id: str, report_data: Dict[str, Any], output_path: Path):
+    """
+    Generate a professional-looking PDF report with:
+      - Cover page
+      - Executive summary
+      - Per-agent sections (only if demographics / charts available)
+      - Charts appended after each agent summary
+
+    NOTE: To keep this endpoint self-contained and robust in offline
+    environments, we format agent summaries heuristically instead of
+    calling an LLM again here. The summaries coming from agents are
+    already LLM-generated.
+    """
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(
+        name="AgentHeader",
+        fontSize=18,
+        spaceAfter=12,
+        textColor=colors.HexColor("#2c3e50")
+    ))
+    styles.add(ParagraphStyle(
+        name="AgentSummary",
+        fontSize=11,
+        leading=14,
+        spaceAfter=6,
+    ))
+    styles.add(ParagraphStyle(
+        name="SectionTitle",
+        fontSize=14,
+        spaceAfter=8,
+        textColor=colors.HexColor("#1f2933")
+    ))
+
+    # Convert Path → str for reportlab
+    doc = SimpleDocTemplate(
+        str(output_path),
+        pagesize=A4,
+        leftMargin=40,
+        rightMargin=40,
+        topMargin=40,
+        bottomMargin=40,
     )
 
+    story: List[Any] = []
+
+    topic = report_data.get("topic", "Innovation Opportunity Assessment")
+    final_answer = report_data.get("final_answer", "")
+
+    # ------------------------------------------------------------------
+    # Cover
+    # ------------------------------------------------------------------
+    story.append(Paragraph("PharmaVerse Innovation Assessment", styles["Title"]))
+    story.append(Spacer(1, 0.3 * inch))
+    story.append(Paragraph(topic, styles["Heading2"]))
+    story.append(Spacer(1, 0.2 * inch))
+    story.append(
+        Paragraph(
+            f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            styles["Normal"]
+        )
+    )
+    story.append(PageBreak())
+
+    # ------------------------------------------------------------------
+    # Executive Summary (already LLM-generated)
+    # ------------------------------------------------------------------
+    story.append(Paragraph("Executive Summary", styles["Heading1"]))
+    if final_answer:
+        # final_answer may contain markdown-like formatting; keep simple
+        for line in final_answer.split("\n\n"):
+            if not line.strip():
+                continue
+            story.append(Paragraph(line.strip(), styles["Normal"]))
+            story.append(Spacer(1, 0.1 * inch))
+    else:
+        story.append(Paragraph("No executive summary available.", styles["Normal"]))
+    story.append(PageBreak())
+
+    # ------------------------------------------------------------------
+    # Agent Sections with demographics (if available)
+    # Use demographics exactly as passed from the 8080 API:
+    #  - Either {"agents": {...}}  (direct)
+    #  - Or {"agent": "...", "raw": {"agents": {...}}}  (via DemographicAgent)
+    # ------------------------------------------------------------------
+    raw_demographics = report_data.get("demographics") or {}
+    if isinstance(raw_demographics, dict) and "agents" in raw_demographics:
+        demographics = raw_demographics.get("agents") or {}
+    elif isinstance(raw_demographics, dict) and isinstance(raw_demographics.get("raw"), dict):
+        demographics = raw_demographics["raw"].get("agents") or {}
+    else:
+        demographics = {}
+    worker_results = report_data.get("worker_results") or []
+
+    # Color palette per agent for demographic visuals
+    agent_colors = {
+        "IQVIA Insights Agent": "#7c3aed",      # purple
+        "EXIM Trends Agent": " #2563eb",        # blue
+        "Patent Landscape Agent": "#16a34a",    # green
+        "Clinical Trials Agent": "#dc2626",     # red
+        "Internal Knowledge Agent": "#4f46e5",  # indigo
+        "Web Intelligence Agent": "#0891b2",    # cyan
+    }
+
+    for agent in worker_results:
+        agent_name = agent.get("agent", "Unknown Agent")
+        agent_summary = agent.get("summary", "").strip()
+        agent_charts = demographics.get(agent_name) or []
+
+        # ------------------------------------------------------------------
+        # Agent header
+        # ------------------------------------------------------------------
+        story.append(Paragraph(agent_name, styles["AgentHeader"]))
+
+        # Lightly structure the agent summary (already LLM-generated text)
+        if agent_summary:
+            story.append(Paragraph("Narrative Summary", styles["SectionTitle"]))
+            for block in agent_summary.split("\n\n"):
+                text = block.strip()
+                if not text:
+                    continue
+                story.append(Paragraph(text, styles["AgentSummary"]))
+                story.append(Spacer(1, 0.05 * inch))
+            story.append(Spacer(1, 0.2 * inch))
+
+        # ------------------------------------------------------------------
+        # Charts / Visual Insights (optional)
+        # ------------------------------------------------------------------
+        chart_images: List[Path] = []
+        if agent_charts:
+            story.append(Paragraph("Visual Insights", styles["SectionTitle"]))
+
+            for chart in agent_charts:
+                try:
+                    img_path = CHART_DIR / f"{report_id}_{chart.get('id', chart.get('title', 'chart'))}.png"
+                    saved = generate_chart(chart, img_path)
+                    if not saved:
+                        continue
+                    chart_images.append(saved)
+
+                    title = chart.get("title", "Chart")
+                    insight = chart.get("insight", "")
+                    color = agent_colors.get(agent_name, "#111827")
+
+                    # Colored title and insight per agent
+                    story.append(Paragraph(f'<font color="{color}">{title}</font>', styles["Heading3"]))
+                    if insight:
+                        story.append(Paragraph(f'<font color="{color}">{insight}</font>', styles["Italic"]))
+                    story.append(Image(str(saved), width=5 * inch, height=3 * inch))
+                    story.append(Spacer(1, 0.3 * inch))
+                except Exception as e:
+                    # Skip problematic charts but don't break the whole report
+                    print(f"[REPORT][{agent_name}] Chart generation failed: {e}")
+                    continue
+
+        # Add reasonable spacing after each agent section instead of page break
+        story.append(Spacer(1, 0.5 * inch))
+
+    doc.build(story)
+    print(f"[REPORT GENERATED] {output_path.resolve()}")
+
+# ============================================================================
+# API: Generate Report
+# ============================================================================
+    # @app.post("/api/generate-report")
+    # def generate_report(report_data: Dict[str, Any] = Body(...)):
+    #     report_id = f"RPT_{uuid.uuid4().hex[:8]}"
+    #     pdf_path = REPORT_DIR / f"{report_id}.pdf"
+
+    #     generate_pdf(report_id, report_data, pdf_path)
+
+    #     return {
+    #         "report_id": report_id,
+    #         "status": "Generated",
+    #         "download_link": f"/downloads/reports/{report_id}.pdf"
+    #     }
+# @app.post("/api/generate-report")
+# async def generate_report(request: Request):
+#     """Generate a comprehensive PDF report"""
+#     try:
+#         data = await request.json()
+        
+#         topic = data.get("topic", "Report")
+#         user_query = data.get("user_query", "")
+#         plan = data.get("plan", {})
+#         worker_results = data.get("worker_results", [])
+#         demographics = data.get("demographics", {})
+#         include_sections = data.get("include_sections", [])
+        
+#         # Generate report ID
+#         report_id = f"report_{int(datetime.now().timestamp())}"
+        
+#         # Store report data
+#         report_storage[report_id] = {
+#             "topic": topic,
+#             "user_query": user_query,
+#             "plan": plan,
+#             "worker_results": worker_results,
+#             "demographics": demographics,
+#             "include_sections": include_sections,
+#             "timestamp": datetime.now().isoformat()
+#         }
+        
+#         return {
+#             "status": "success",
+#             "report_id": report_id,
+#             "download_url": f"/downloads/reports/{report_id}.pdf",
+#             "message": f"Report '{topic}' generated successfully"
+#         }
+#     except Exception as e:
+#         return {
+#             "status": "error",
+#             "message": str(e)
+#         }
+@app.post("/api/generate-report")
+async def generate_report(request: Request):
+    """Generate a comprehensive PDF report"""
+    try:
+        data = await request.json()
+
+        topic = data.get("topic", "Report")
+        user_query = data.get("user_query", "")
+        plan = data.get("plan", {})
+        worker_results = data.get("worker_results", [])
+        demographics = data.get("demographics", {})
+        final_answer = data.get("final_answer", "")
+        include_sections = data.get("include_sections", [])
+
+        # ✅ Generate report ID
+        report_id = f"report_{int(datetime.now().timestamp())}"
+
+        # ✅ Define real PDF path
+        pdf_path = REPORT_DIR / f"{report_id}.pdf"
+
+        # ✅ BUILD REPORT DATA
+        report_data = {
+            "topic": topic,
+            "user_query": user_query,
+            "plan": plan,
+            "worker_results": worker_results,
+            "demographics": demographics,
+            "final_answer": final_answer,
+            "include_sections": include_sections,
+        }
+
+        # 🔥 THIS WAS MISSING — ACTUALLY CREATE THE PDF
+        generate_pdf(
+            report_id=report_id,
+            report_data=report_data,
+            output_path=pdf_path
+        )
+
+        # ✅ Store metadata (optional, but fine)
+        report_storage[report_id] = {
+            "path": str(pdf_path),
+            "topic": topic,
+            "timestamp": datetime.now().isoformat()
+        }
+
+        return {
+            "status": "success",
+            "report_id": report_id,
+            "download_url": f"/downloads/reports/{report_id}.pdf",
+            "message": f"Report '{topic}' generated successfully"
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+# ============================================================================
+# API: Download Report
+# ============================================================================
+# @app.get("/downloads/reports/{report_id}.pdf")
+# def download_report(report_id: str):
+#     path = REPORT_DIR / f"{report_id}.pdf"
+#     if not path.exists():
+#         return {"error": "Report not found"}
+
+#     return FileResponse(
+#         path,
+#         media_type="application/pdf",
+#         filename=f"{report_id}.pdf"
+#     )
+@app.get("/downloads/reports/{report_id}.pdf")
+def download_report(report_id: str):
+    path = REPORT_DIR / f"{report_id}.pdf"
+
+    if not path.exists():
+        return {
+            "status": "processing",
+            "message": "Report is still being generated. Please try again in a few seconds."
+        }
+
+    return FileResponse(
+        path=str(path),
+        media_type="application/pdf",
+        filename=f"{report_id}.pdf"
+    )
 
 # ============================================================================
 # Utility endpoint to get all available endpoints

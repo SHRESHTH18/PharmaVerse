@@ -1,6 +1,7 @@
 # master_agent.py
 from typing import Dict, Any, List, TypedDict
 import json
+import os
 from langgraph.graph import StateGraph, END
 from langchain.prompts import ChatPromptTemplate
 
@@ -13,13 +14,15 @@ from agents.clinical_trials_agent import ClinicalTrialsAgent
 from agents.internal_knowledge_agent import InternalKnowledgeAgent
 from agents.web_intel_agent import WebIntelligenceAgent
 from agents.report_agent import ReportAgent
+from agents.demographic_agent import DemographicAgent
+
 
 
 class AgentState(TypedDict):
-    """State for the agent orchestration graph"""
     user_query: str
     plan: Dict[str, Any]
     worker_results: List[Dict[str, Any]]
+    demographics: Dict[str, Any]   # 👈 NEW
     final_answer: str
     report: Dict[str, Any]
 
@@ -45,6 +48,8 @@ class MasterAgent:
         self.internal_agent = InternalKnowledgeAgent(api_base, self.llm)
         self.web_agent = WebIntelligenceAgent(api_base, self.llm)
         self.report_agent = ReportAgent(api_base, self.llm)
+        self.demographic_agent = DemographicAgent(api_base, self.llm)
+        
         
         # Build LangGraph workflow
         self.workflow = self._build_workflow()
@@ -144,12 +149,20 @@ class MasterAgent:
 
         state["worker_results"] = results
         return state
+    def _generate_demographics(self, state: AgentState) -> AgentState:
+        """
+        Uses DemographicAgent to convert worker_results into chart-ready data
+        """
+        result = self.demographic_agent.run(state["worker_results"])
+        state["demographics"] = result["raw"]
+        return state
 
     def _generate_report(self, state: AgentState) -> AgentState:
         """Generate PDF report with all data"""
         plan = state["plan"]
         worker_results = state["worker_results"]
         user_query = state["user_query"]
+        
         
         molecule = plan.get("molecule")
         indication = plan.get("indication")
@@ -175,6 +188,7 @@ class MasterAgent:
             user_query=user_query,
             plan=plan,
             worker_results=worker_results,
+            demographics=state["demographics"],  # 👈 PASS IT
             include_sections=include_sections
         )
         
@@ -232,13 +246,16 @@ Write a concise executive summary and actionable recommendations for the portfol
         workflow.add_node("run_workers", self._run_workers)
         workflow.add_node("generate_report", self._generate_report)
         workflow.add_node("final_answer", self._generate_final_answer)
+        workflow.add_node("generate_demographics", self._generate_demographics)
         
         # Set entry point
         workflow.set_entry_point("plan")
         
         # Define edges
         workflow.add_edge("plan", "run_workers")
-        workflow.add_edge("run_workers", "generate_report")
+        workflow.add_edge("run_workers", "generate_demographics")
+        workflow.add_edge("generate_demographics", "generate_report")   
+        
         workflow.add_edge("generate_report", "final_answer")
         workflow.add_edge("final_answer", END)
         
@@ -265,11 +282,40 @@ Write a concise executive summary and actionable recommendations for the portfol
         
         # Run the workflow
         final_state = self.workflow.invoke(initial_state)
-        
-        return {
+
+        # ------------------------------------------------------------------
+        # Enrich report metadata with a fully-qualified download link
+        # ------------------------------------------------------------------
+        report_meta = final_state.get("report", {}) or {}
+        api_base_url = os.getenv("API_BASE_URL", "http://localhost:8000")
+
+        download_url = report_meta.get("download_url") or report_meta.get("download_link")
+        full_download_link = None
+        if download_url:
+            # Normalise to absolute URL
+            if download_url.startswith("/"):
+                full_download_link = f"{api_base_url}{download_url}"
+            else:
+                full_download_link = download_url
+
+            # Attach both relative and absolute links into the report metadata
+            report_meta["download_url"] = download_url
+            report_meta["download_link"] = full_download_link
+
+        final_state["report"] = report_meta
+
+        # Shape final JSON response
+        response: Dict[str, Any] = {
             "user_query": final_state["user_query"],
             "plan": final_state["plan"],
             "worker_results": final_state["worker_results"],
+            "demographics": final_state["demographics"],
             "final_answer": final_state["final_answer"],
-            "report": final_state["report"],
+            "report": report_meta,
         }
+
+        # Also expose the absolute download link at the top level for convenience
+        if full_download_link:
+            response["download_link"] = full_download_link
+
+        return response

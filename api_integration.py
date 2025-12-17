@@ -529,129 +529,129 @@ async def get_dossier(session_id: str):
         }
     }
 
-@app.post("/api/generate-report")
-async def generate_report_integration(
-    report_type: str = Query("pdf", description="pdf or excel"),
-    topic: Optional[str] = Query(None, description="Report topic"),
-    session_id: Optional[str] = Query(None, description="Session ID (optional)")
-):
-    """Generate report with session data or direct call (backward compatible)"""
-    session = None
+# @app.post("/api/generate-report")
+# async def generate_report_integration(
+#     report_type: str = Query("pdf", description="pdf or excel"),
+#     topic: Optional[str] = Query(None, description="Report topic"),
+#     session_id: Optional[str] = Query(None, description="Session ID (optional)")
+# ):
+#     """Generate report with session data or direct call (backward compatible)"""
+#     session = None
     
-    # Try to get session if provided
-    if session_id:
-        try:
-            session = get_session(session_id)
-        except:
-            pass
+#     # Try to get session if provided
+#     if session_id:
+#         try:
+#             session = get_session(session_id)
+#         except:
+#             pass
     
-    # If no session_id but we have topic, try to find session by molecule name
-    if not session and topic:
-        # Extract molecule name from topic (e.g., "Semaglutide Innovation Opportunities")
-        topic_parts = topic.split()
-        if topic_parts:
-            molecule_name = topic_parts[0]
-            # Find most recent session with this molecule
-            for sid, sess in sessions.items():
-                if sess.get("molecule", {}).get("name", "").lower() == molecule_name.lower():
-                    session = sess
-                    session_id = sid
-                    break
+#     # If no session_id but we have topic, try to find session by molecule name
+#     if not session and topic:
+#         # Extract molecule name from topic (e.g., "Semaglutide Innovation Opportunities")
+#         topic_parts = topic.split()
+#         if topic_parts:
+#             molecule_name = topic_parts[0]
+#             # Find most recent session with this molecule
+#             for sid, sess in sessions.items():
+#                 if sess.get("molecule", {}).get("name", "").lower() == molecule_name.lower():
+#                     session = sess
+#                     session_id = sid
+#                     break
     
-    # If still no session, use a default for backward compatibility
-    if not session:
-        # Fallback: create minimal session data from topic
-        molecule_name = topic.split()[0] if topic else "Unknown"
-        session = {
-            "molecule": {"name": molecule_name, "indication": "General"},
-            "user_query": topic or "Innovation Opportunity Assessment",
-            "plan": {},
-            "agent_results": {},
-            "worker_results": []
-        }
+#     # If still no session, use a default for backward compatibility
+#     if not session:
+#         # Fallback: create minimal session data from topic
+#         molecule_name = topic.split()[0] if topic else "Unknown"
+#         session = {
+#             "molecule": {"name": molecule_name, "indication": "General"},
+#             "user_query": topic or "Innovation Opportunity Assessment",
+#             "plan": {},
+#             "agent_results": {},
+#             "worker_results": []
+#         }
     
-    # Get topic
-    if not topic and session:
-        molecule = session.get("molecule", {}).get("name", "Unknown")
-        indication = session.get("molecule", {}).get("indication", "General")
-        topic = f"Innovation Opportunity Assessment for {molecule} ({indication})"
-    elif not topic:
-        topic = "Innovation Opportunity Assessment"
+#     # Get topic
+#     if not topic and session:
+#         molecule = session.get("molecule", {}).get("name", "Unknown")
+#         indication = session.get("molecule", {}).get("indication", "General")
+#         topic = f"Innovation Opportunity Assessment for {molecule} ({indication})"
+#     elif not topic:
+#         topic = "Innovation Opportunity Assessment"
     
-    # Prepare report data
-    report_data = {
-        "user_query": session.get("user_query", topic),
-        "plan": session.get("plan", {}),
-        "worker_results": session.get("worker_results", []),
-        "detailed_agent_responses": []
-    }
+#     # Prepare report data
+#     report_data = {
+#         "user_query": session.get("user_query", topic),
+#         "plan": session.get("plan", {}),
+#         "worker_results": session.get("worker_results", []),
+#         "detailed_agent_responses": []
+#     }
     
-    # Collect agent data
-    agent_results = session.get("agent_results", {})
-    for agent_key, result in agent_results.items():
-        agent_data = {
-            "agent_name": result.get("agent", agent_key),
-            "params": result.get("params", {}),
-            "summary": result.get("summary", ""),
-            "raw_json_response": result.get("raw", {})
-        }
-        report_data["detailed_agent_responses"].append(agent_data)
+#     # Collect agent data
+#     agent_results = session.get("agent_results", {})
+#     for agent_key, result in agent_results.items():
+#         agent_data = {
+#             "agent_name": result.get("agent", agent_key),
+#             "params": result.get("params", {}),
+#             "summary": result.get("summary", ""),
+#             "raw_json_response": result.get("raw", {})
+#         }
+#         report_data["detailed_agent_responses"].append(agent_data)
     
-    # Call report agent
-    master = MasterAgent()
-    include_sections = [
-        "Executive Summary",
-        "Market Analysis",
-        "EXIM / Sourcing",
-        "Clinical Pipeline",
-        "Patent Landscape",
-        "Internal Strategy Insights",
-        "Guidelines & Web Intelligence",
-        "Recommendations"
-    ]
+#     # Call report agent
+#     master = MasterAgent()
+#     include_sections = [
+#         "Executive Summary",
+#         "Market Analysis",
+#         "EXIM / Sourcing",
+#         "Clinical Pipeline",
+#         "Patent Landscape",
+#         "Internal Strategy Insights",
+#         "Guidelines & Web Intelligence",
+#         "Recommendations"
+#     ]
     
-    # Prepare worker results
-    worker_results = session.get("worker_results", [])
-    if not worker_results and session.get("agent_results"):
-        # Convert agent_results to worker_results format
-        worker_results = list(session["agent_results"].values())
+#     # Prepare worker results
+#     worker_results = session.get("worker_results", [])
+#     if not worker_results and session.get("agent_results"):
+#         # Convert agent_results to worker_results format
+#         worker_results = list(session["agent_results"].values())
     
-    try:
-        report_result = master.report_agent.run(
-            topic=topic,
-            user_query=session.get("user_query", topic),
-            plan=session.get("plan", {}),
-            worker_results=worker_results,
-            include_sections=include_sections
-        )
+#     try:
+#         report_result = master.report_agent.run(
+#             topic=topic,
+#             user_query=session.get("user_query", topic),
+#             plan=session.get("plan", {}),
+#             worker_results=worker_results,
+#             include_sections=include_sections
+#         )
         
-        # Store report_id in session if we have session_id
-        if session_id:
-            if session_id in sessions:
-                sessions[session_id]["report_id"] = report_result["raw"].get("report_id")
+#         # Store report_id in session if we have session_id
+#         if session_id:
+#             if session_id in sessions:
+#                 sessions[session_id]["report_id"] = report_result["raw"].get("report_id")
             
-            # Also store in report_storage for PDF download
-            report_id = report_result["raw"].get("report_id")
-            if report_id:
-                if report_id not in report_storage or "report_data" not in report_storage[report_id]:
-                    report_storage[report_id] = {
-                        "topic": topic,
-                        "report_data": report_data,
-                        "generated_at": datetime.now().isoformat()
-                    }
+#             # Also store in report_storage for PDF download
+#             report_id = report_result["raw"].get("report_id")
+#             if report_id:
+#                 if report_id not in report_storage or "report_data" not in report_storage[report_id]:
+#                     report_storage[report_id] = {
+#                         "topic": topic,
+#                         "report_data": report_data,
+#                         "generated_at": datetime.now().isoformat()
+#                     }
         
-        return report_result["raw"]
-    except Exception as e:
-        # Fallback to basic report generation
-        report_id = f"RPT_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        return {
-            "report_id": report_id,
-            "report_type": "PDF",
-            "topic": topic,
-            "status": "Generated",
-            "download_link": f"/downloads/reports/{report_id}.pdf",
-            "error": str(e)
-        }
+#         return report_result["raw"]
+#     except Exception as e:
+#         # Fallback to basic report generation
+#         report_id = f"RPT_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+#         return {
+#             "report_id": report_id,
+#             "report_type": "PDF",
+#             "topic": topic,
+#             "status": "Generated",
+#             "download_link": f"/downloads/reports/{report_id}.pdf",
+#             "error": str(e)
+#         }
 
 @app.get("/api/reports")
 async def list_reports():
