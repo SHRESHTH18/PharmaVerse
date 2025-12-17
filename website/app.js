@@ -31,6 +31,15 @@ const AppState = {
         internal: null,
         web: null
     },
+    // Store concise agent-level summaries for quick follow-up answers
+    agentSummaries: {
+        iqvia: null,
+        exim: null,
+        patents: null,
+        trials: null,
+        internal: null,
+        web: null
+    },
     masterAgentResponse: null
 };
 
@@ -96,23 +105,50 @@ function launchAgentRun() {
     const query = strategicQuestion || 
         `Evaluate the innovation opportunity for ${moleculeName} in ${indication}`;
     
-    setTimeout(() => {
+            setTimeout(() => {
         callMasterAgent(query);
-    }, 500);
+            }, 500);
 }
 
 // ============================================================================
 // Master Agent Integration - CALLS THE REAL BACKEND
 // ============================================================================
 
-async function callMasterAgent(userQuery) {
-    // Set all agents to running
+async function callMasterAgent(userQuery, isFollowUp = false) {
+    // Always include current molecule and indication context so the backend
+    // can understand what product/indication the question refers to.
+    let enrichedQuery = userQuery;
+    if (AppState.currentMolecule) {
+        const ctxParts = [];
+        if (AppState.currentMolecule.name) {
+            ctxParts.push(`Molecule: ${AppState.currentMolecule.name}`);
+        }
+        if (AppState.currentMolecule.indication) {
+            ctxParts.push(`Indication: ${AppState.currentMolecule.indication}`);
+        }
+        if (AppState.currentMolecule.geography) {
+            ctxParts.push(`Geography: ${AppState.currentMolecule.geography}`);
+        }
+        if (AppState.currentMolecule.timeframe) {
+            ctxParts.push(`Timeframe: ${AppState.currentMolecule.timeframe}`);
+        }
+        if (ctxParts.length > 0) {
+            const contextText = `Context for this analysis – ${ctxParts.join('. ')}.`;
+            enrichedQuery = `${contextText} User question: ${userQuery}`;
+        }
+    }
+    
+    // Mark all agents as running for a new request
     Object.keys(AppState.agentStatuses).forEach(agent => {
         updateAgentStatus(agent, 'running');
     });
     
-    addChatMessage('master', `🚀 Starting comprehensive analysis: "${userQuery}"`);
-    addChatMessage('master', `Coordinating all worker agents... This may take a minute.`);
+    if (!isFollowUp) {
+        addChatMessage('master', `🚀 Starting comprehensive analysis for ${AppState.currentMolecule.name || ''} ${AppState.currentMolecule.indication ? 'in ' + AppState.currentMolecule.indication : ''}...`);
+        addChatMessage('master', `Coordinating all worker agents... This may take a minute.`);
+    } else {
+        addChatMessage('master', `🤔 Follow-up question received: "${userQuery}"`);
+    }
     
     try {
         const response = await fetch(`${MASTER_AGENT_URL}/run`, {
@@ -121,7 +157,7 @@ async function callMasterAgent(userQuery) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                user_query: userQuery
+                user_query: enrichedQuery
             })
         });
         
@@ -131,38 +167,45 @@ async function callMasterAgent(userQuery) {
         
         const result = await response.json();
         
-        // Store the full response
+        // Store the full response so follow-up questions can reuse it
         AppState.masterAgentResponse = result;
         
-        // Process worker results and update agent data
-        processWorkerResults(result.worker_results);
-        
-        // Update all agent statuses to done
-        Object.keys(AppState.agentStatuses).forEach(agent => {
-            updateAgentStatus(agent, 'done');
-        });
-        
-        // Display the final answer from master agent
-        if (result.final_answer) {
-            addChatMessage('master', result.final_answer);
+        if (!isFollowUp) {
+            // First, full analysis: update agent data and tabs
+            processWorkerResults(result.worker_results);
+            
+            Object.keys(AppState.agentStatuses).forEach(agent => {
+                updateAgentStatus(agent, 'done');
+            });
+            
+            if (result.final_answer) {
+                addChatMessage('master', result.final_answer);
+            }
+            
+            if (result.report && result.report.download_link) {
+                const fullUrl = result.download_link || result.report.download_link;
+                addChatMessage('report', `📄 Report generated! <a href=\"${fullUrl}\" target=\"_blank\" class=\"text-purple-600 underline\">Download PDF</a>`);
+            }
+            
+            // Show overview by default after first run
+            switchTab('overview');
+        } else {
+            // For follow‑up questions, return a concise, focused answer
+            handleFollowUpAnswer(userQuery);
+            
+            // Mark any running agents as done without overwriting existing summaries
+            Object.keys(AppState.agentStatuses).forEach(agent => {
+                if (AppState.agentStatuses[agent] === 'running') {
+                    updateAgentStatus(agent, 'done');
+                }
+            });
         }
-        
-        // Show report info if available
-        if (result.report && result.report.download_link) {
-            addChatMessage('report', `📄 Report generated! <a href="${MASTER_AGENT_URL}${result.report.download_link}" target="_blank" class="text-purple-600 underline">Download PDF</a>`);
-        }
-        
-        // Switch to overview tab to show results
-        switchTab('overview');
         
     } catch (error) {
         console.error('Master Agent error:', error);
-        
-        // Set all agents to error
         Object.keys(AppState.agentStatuses).forEach(agent => {
             updateAgentStatus(agent, 'error');
         });
-        
         addChatMessage('master', `⚠️ Error connecting to Master Agent: ${error.message}. Please ensure the backend is running on port 8080.`);
     }
 }
@@ -176,24 +219,110 @@ function processWorkerResults(workerResults) {
         // Map agent names to our state keys
         if (agentName.includes('iqvia')) {
             AppState.agentData.iqvia = result.raw;
+            AppState.agentSummaries.iqvia = result.summary || null;
             addChatMessage('iqvia', result.summary || 'Market analysis complete.');
         } else if (agentName.includes('exim')) {
             AppState.agentData.exim = result.raw;
+            AppState.agentSummaries.exim = result.summary || null;
             addChatMessage('exim', result.summary || 'Trade analysis complete.');
         } else if (agentName.includes('patent')) {
             AppState.agentData.patents = result.raw;
+            AppState.agentSummaries.patents = result.summary || null;
             addChatMessage('patents', result.summary || 'Patent landscape mapped.');
         } else if (agentName.includes('clinical') || agentName.includes('trial')) {
             AppState.agentData.trials = result.raw;
+            AppState.agentSummaries.trials = result.summary || null;
             addChatMessage('trials', result.summary || 'Clinical trials analyzed.');
         } else if (agentName.includes('internal')) {
             AppState.agentData.internal = result.raw;
+            AppState.agentSummaries.internal = result.summary || null;
             addChatMessage('internal', result.summary || 'Internal knowledge retrieved.');
         } else if (agentName.includes('web') || agentName.includes('intelligence')) {
             AppState.agentData.web = result.raw;
+            AppState.agentSummaries.web = result.summary || null;
             addChatMessage('web', result.summary || 'Web intelligence gathered.');
         }
     });
+}
+
+// Helper to pick a short snippet (1–3 sentences) from a longer summary
+function getShortSummary(text, maxSentences = 3) {
+    if (!text) return 'Here is a quick update based on the latest analysis.';
+    const parts = text.split(/(?<=[.!?])\s+/).filter(Boolean);
+    const snippet = parts.slice(0, maxSentences).join(' ');
+    return snippet || text;
+}
+
+// Map follow-up questions to the most relevant agent/key
+function detectFollowUpTopic(message) {
+    const m = message.toLowerCase();
+    const checks = [
+        { key: 'market', keywords: ['market', 'sales', 'revenue', 'commercial', 'demand'] },
+        { key: 'exim',   keywords: ['exim', 'export', 'import', 'supply', 'manufactur', 'capacity'] },
+        { key: 'patents', keyAlt: 'patents', keywords: ['patent', 'ip', 'intellectual property', 'expiry', 'exclusivity'] },
+        { key: 'trials', keywords: ['trial', 'clinical', 'phase', 'study', 'pivotal'] },
+        { key: 'internal', keywords: ['internal', 'strategy', 'field', 'insight', 'salesforce'] },
+        { key: 'web',    keywords: ['guideline', 'guidelines', 'publication', 'literature', 'kols', 'opinion leader', 'real world', 'rwe', 'evidence'] }
+    ];
+    
+    for (const item of checks) {
+        if (item.key && item.key !== 'patents') {
+            if (item.key && m.includes(item.key)) return item.key;
+        }
+        if (item.keywords.some(k => m.includes(k))) {
+            return item.key;
+        }
+    }
+    return null;
+}
+
+// Use existing agent summaries to answer follow‑up questions concisely
+function handleFollowUpAnswer(message) {
+    const current = AppState.masterAgentResponse;
+    if (!current) {
+        // No context yet – fall back to full analysis
+        callMasterAgent(message, false);
+        return;
+    }
+    
+    const topicKey = detectFollowUpTopic(message);
+    let reply = '';
+    
+    if (topicKey && AppState.agentSummaries[topicKey]) {
+        // Focus on the relevant agent summary and answer briefly
+        const base = getShortSummary(AppState.agentSummaries[topicKey], 3);
+        const ctxParts = [];
+        if (AppState.currentMolecule?.name) {
+            let ctx = `${AppState.currentMolecule.name}`;
+            if (AppState.currentMolecule.indication) {
+                ctx += ` in ${AppState.currentMolecule.indication}`;
+            }
+            ctxParts.push(ctx);
+        }
+        const contextText = ctxParts.length ? `For ${ctxParts.join(', ')}, ` : '';
+        reply = `${contextText}${base}`;
+        
+        // Optionally switch to the most relevant insights tab
+        const tabMap = {
+            iqvia: 'market',
+            exim: 'trade',
+            trials: 'trials',
+            patents: 'patents',
+            internal: 'overview',
+            web: 'overview'
+        };
+        const targetTab = tabMap[topicKey];
+        if (targetTab) {
+            switchTab(targetTab);
+        }
+    } else if (current.final_answer) {
+        // Generic follow‑up: return a concise version of the overall answer
+        reply = getShortSummary(current.final_answer, 3);
+    } else {
+        reply = "I've already completed a full analysis for this molecule and indication. Please run a new analysis if you'd like to explore a different topic.";
+    }
+    
+    addChatMessage('master', reply);
 }
 
 // ============================================================================
@@ -293,8 +422,10 @@ function sendChatMessage() {
     addChatMessage('user', message);
     input.value = '';
     
-    // Call the Master Agent with the user's query
-    callMasterAgent(message);
+    // If we already have a full analysis, treat this as a follow-up and respond concisely.
+    // Otherwise, run the full master agent workflow.
+    const isFollowUp = !!AppState.masterAgentResponse;
+    callMasterAgent(message, isFollowUp);
 }
 
 function handleChatKeyPress(event) {
@@ -466,27 +597,27 @@ function displayMarketInsights() {
             </div>
             
             ${markets.length > 0 ? `
-                <h4 class="font-semibold text-gray-900 mt-4">Market Size by Geography</h4>
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Country</th>
-                            <th>Sales (M USD)</th>
-                            <th>5Y CAGR</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+            <h4 class="font-semibold text-gray-900 mt-4">Market Size by Geography</h4>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Country</th>
+                        <th>Sales (M USD)</th>
+                        <th>5Y CAGR</th>
+                    </tr>
+                </thead>
+                <tbody>
                         ${markets.map(market => `
                             <tr>
                                 <td class="font-medium">${market.country || 'N/A'}</td>
                                 <td>$${market.sales_2024_musd || market.sales || 'N/A'}M</td>
                                 <td class="${(market.cagr_5y || 0) > 0 ? 'text-green-600' : 'text-red-600'}">
                                     ${(market.cagr_5y || 0) > 0 ? '+' : ''}${market.cagr_5y || 'N/A'}%
-                                </td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
             ` : '<p class="text-gray-500">No market breakdown available.</p>'}
             
             ${data.competition_summary ? `
@@ -523,16 +654,16 @@ function displayTradeInsights() {
             </div>
             
             ${tradeData.length > 0 ? `
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Country</th>
-                            <th>Exports (T)</th>
-                            <th>Imports (T)</th>
-                            <th>Position</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Country</th>
+                        <th>Exports (T)</th>
+                        <th>Imports (T)</th>
+                        <th>Position</th>
+                    </tr>
+                </thead>
+                <tbody>
                         ${tradeData.map(trade => `
                             <tr>
                                 <td class="font-medium">${trade.country || 'N/A'}</td>
@@ -541,19 +672,19 @@ function displayTradeInsights() {
                                 <td>
                                     <span class="badge ${(trade.net_position || '').includes('Exporter') ? 'badge-green' : 'badge-yellow'}">
                                         ${trade.net_position || 'N/A'}
-                                    </span>
-                                </td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
+                                </span>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
             ` : '<p class="text-gray-500">No trade breakdown available.</p>'}
             
             ${data.sourcing_insights ? `
-                <div class="mt-4 p-4 bg-yellow-50 rounded-lg">
-                    <h4 class="font-semibold text-yellow-900 mb-2">📊 Sourcing Insights</h4>
-                    <p class="text-sm text-yellow-800">${data.sourcing_insights}</p>
-                </div>
+            <div class="mt-4 p-4 bg-yellow-50 rounded-lg">
+                <h4 class="font-semibold text-yellow-900 mb-2">📊 Sourcing Insights</h4>
+                <p class="text-sm text-yellow-800">${data.sourcing_insights}</p>
+            </div>
             ` : ''}
             
             <p class="text-xs text-gray-500 mt-4">Source: EXIM Agent</p>
@@ -602,22 +733,22 @@ function displayTrialsInsights() {
             ` : ''}
             
             ${activeTrials.length > 0 ? `
-                <h4 class="font-semibold text-gray-900 mt-4">Active Trials</h4>
+            <h4 class="font-semibold text-gray-900 mt-4">Active Trials</h4>
                 <div class="space-y-3 max-h-64 overflow-y-auto">
                     ${activeTrials.slice(0, 5).map(trial => `
-                        <div class="border border-gray-200 rounded-lg p-3 hover:border-purple-300 transition">
-                            <div class="flex justify-between items-start mb-2">
+                    <div class="border border-gray-200 rounded-lg p-3 hover:border-purple-300 transition">
+                        <div class="flex justify-between items-start mb-2">
                                 <h5 class="font-semibold text-sm text-gray-900">${trial.title || 'Untitled Trial'}</h5>
                                 <span class="badge badge-blue">${trial.phase || 'N/A'}</span>
-                            </div>
+                        </div>
                             <p class="text-xs text-gray-600 mb-2">${trial.indication || 'N/A'}</p>
-                            <div class="grid grid-cols-2 gap-2 text-xs text-gray-500">
+                        <div class="grid grid-cols-2 gap-2 text-xs text-gray-500">
                                 <div><strong>Sponsor:</strong> ${trial.sponsor || 'N/A'}</div>
                                 <div><strong>Status:</strong> ${trial.status || 'N/A'}</div>
-                            </div>
                         </div>
-                    `).join('')}
-                </div>
+                    </div>
+                `).join('')}
+            </div>
             ` : ''}
             
             <p class="text-xs text-gray-500 mt-4">Source: Clinical Trials Agent</p>
@@ -648,30 +779,30 @@ function displayPatentInsights() {
             </div>
             
             ${patents.length > 0 ? `
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Patent #</th>
-                            <th>Holder</th>
-                            <th>Expiry</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Patent #</th>
+                        <th>Holder</th>
+                        <th>Expiry</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
                         ${patents.map(patent => `
                             <tr>
                                 <td class="font-mono text-xs">${patent.patent_number || 'N/A'}</td>
                                 <td>${patent.holder || 'N/A'}</td>
                                 <td>${patent.expiry_date || 'N/A'}</td>
-                                <td>
-                                    <span class="badge ${patent.status === 'Active' ? 'badge-red' : 'badge-green'}">
+                            <td>
+                                <span class="badge ${patent.status === 'Active' ? 'badge-red' : 'badge-green'}">
                                         ${patent.status || 'N/A'}
-                                    </span>
-                                </td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
+                                </span>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
             ` : '<p class="text-gray-500">No patent breakdown available.</p>'}
             
             ${data.generic_opportunity ? `
@@ -735,7 +866,7 @@ function loadMoleculeDossier() {
     loadUnmetNeeds();
     loadTrialsTable();
     loadPatentsTable();
-    loadInnovationIdeas();
+        loadInnovationIdeas();
 }
 
 function loadUnmetNeeds() {

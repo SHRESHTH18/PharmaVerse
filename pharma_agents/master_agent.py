@@ -260,6 +260,52 @@ Write a concise executive summary and actionable recommendations for the portfol
         workflow.add_edge("final_answer", END)
         
         return workflow.compile()
+    def _detect_followup_intent(self, query: str) -> str:
+        q = query.lower()
+
+        if any(k in q for k in ["market", "sales", "cagr", "demand", "revenue"]):
+            return "iqvia"
+        if any(k in q for k in ["patent", "ip", "fto", "exclusivity"]):
+            return "patents"
+        if any(k in q for k in ["trial", "clinical", "phase"]):
+            return "clinical"
+        if any(k in q for k in ["export", "import", "supply", "exim"]):
+            return "exim"
+        if any(k in q for k in ["guideline", "publication", "news"]):
+            return "web"
+
+        return "general"
+    def answer_followup(
+        self,
+        user_query: str,
+        plan: Dict[str, Any],
+        worker_results: List[Dict[str, Any]],
+    ) -> str:
+        intent = self._detect_followup_intent(user_query)
+
+        # Map agent → result
+        agent_map = {
+            r["agent"].lower(): r for r in worker_results
+        }
+
+        if intent == "general":
+            return (
+                "This question goes beyond the available data collected so far. "
+                "Please run a new analysis if you’d like deeper insights."
+            )
+
+        # Find matching agent
+        for agent_name, result in agent_map.items():
+            if intent in agent_name:
+                summary = result.get("summary", "")
+                if not summary:
+                    return "Relevant data is not available in the current analysis."
+
+                # 🔥 Keep concise (2–3 sentences)
+                sentences = summary.split(".")
+                return ".".join(sentences[:3]).strip() + "."
+
+        return "Relevant data is not available in the current analysis."
 
     def run(self, user_query: str) -> Dict[str, Any]:
         """
@@ -281,7 +327,26 @@ Write a concise executive summary and actionable recommendations for the portfol
         }
         
         # Run the workflow
-        final_state = self.workflow.invoke(initial_state)
+        # final_state = self.workflow.invoke(initial_state)
+        # Detect follow-up
+        is_followup = bool(initial_state.get("worker_results"))
+
+        if not is_followup:
+            final_state = self.workflow.invoke(initial_state)
+        else:
+            answer = self.answer_followup(
+                user_query,
+                initial_state["plan"],
+                initial_state["worker_results"],
+            )
+            return {
+                "user_query": user_query,
+                "final_answer": answer,
+                "worker_results": initial_state["worker_results"],
+                "plan": initial_state["plan"],
+                "demographics": initial_state.get("demographics", {}),
+                "report": {},
+            }
 
         # ------------------------------------------------------------------
         # Enrich report metadata with a fully-qualified download link

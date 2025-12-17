@@ -372,85 +372,206 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             if websocket in active_websockets[session_id]:
                 active_websockets[session_id].remove(websocket)
 
+# @app.post("/api/chat")
+# async def chat(request: ChatRequest):
+#     """Handle chat messages from user"""
+#     session = get_session(request.session_id)
+    
+#     # Add user message to chat history
+#     session["chat_history"].append({
+#         "sender": "user",
+#         "message": request.message,
+#         "timestamp": datetime.now().isoformat()
+#     })
+    
+#     # Initialize master agent
+#     master = MasterAgent()
+    
+#     # Simple keyword-based routing (can be enhanced with LLM)
+#     lower_message = request.message.lower()
+    
+#     agent_to_trigger = None
+#     response_message = ""
+    
+#     if "market" in lower_message or "sales" in lower_message or "iqvia" in lower_message:
+#         agent_to_trigger = "iqvia"
+#         response_message = "Let me pull the latest market data for you..."
+#     elif "patent" in lower_message or "ip" in lower_message or "fto" in lower_message:
+#         agent_to_trigger = "patents"
+#         response_message = "Checking the patent landscape..."
+#     elif "trial" in lower_message or "clinical" in lower_message:
+#         agent_to_trigger = "trials"
+#         response_message = "Searching clinical trials databases..."
+#     elif "trade" in lower_message or "export" in lower_message or "import" in lower_message or "exim" in lower_message:
+#         agent_to_trigger = "exim"
+#         response_message = "Analyzing trade data..."
+#     elif "internal" in lower_message or "strategy" in lower_message:
+#         agent_to_trigger = "internal"
+#         response_message = "Searching internal knowledge base..."
+#     elif "guideline" in lower_message or "publication" in lower_message or "web" in lower_message:
+#         agent_to_trigger = "web"
+#         response_message = "Searching web intelligence sources..."
+#     else:
+#         response_message = f"I understand you're asking about: \"{request.message}\". Let me gather relevant information from our agents. You can also explore the tabs on the right for detailed insights."
+    
+#     # If agent needs to be triggered and hasn't run yet
+#     if agent_to_trigger and agent_to_trigger not in session.get("agent_results", {}):
+#         molecule = session["molecule"]["name"]
+#         context = session["user_query"]
+        
+#         try:
+#             if agent_to_trigger == "iqvia":
+#                 result = master.iqvia_agent.run(context)
+#             elif agent_to_trigger == "exim":
+#                 result = master.exim_agent.run(context)
+#             elif agent_to_trigger == "patents":
+#                 result = master.patent_agent.run(context)
+#             elif agent_to_trigger == "trials":
+#                 result = master.ct_agent.run(context)
+#             elif agent_to_trigger == "internal":
+#                 result = master.internal_agent.run(context)
+#             elif agent_to_trigger == "web":
+#                 result = master.web_agent.run(context)
+            
+#             session["agent_results"][agent_to_trigger] = result
+#             store_session(request.session_id, session)
+            
+#         except Exception as e:
+#             response_message = f"Sorry, I encountered an error: {str(e)}"
+    
+#     # Add response to chat history
+#     session["chat_history"].append({
+#         "sender": "master",
+#         "message": response_message,
+#         "timestamp": datetime.now().isoformat()
+#     })
+#     store_session(request.session_id, session)
+    
+#     return {
+#         "response": response_message,
+#         "sender": "master",
+#         "agents_triggered": [agent_to_trigger] if agent_to_trigger else []
+#     }
+# @app.post("/api/chat")
+# async def chat(request: ChatRequest):
+#     """Handle chat follow-up questions using existing agent data"""
+#     session = get_session(request.session_id)
+
+#     # Store user message
+#     session["chat_history"].append({
+#         "sender": "user",
+#         "message": request.message,
+#         "timestamp": datetime.now().isoformat()
+#     })
+
+#     lower_message = request.message.lower()
+#     agent_results = session.get("agent_results", {})
+
+#     # ---- Intent detection ----
+#     intent_map = {
+#         "iqvia": ["market", "sales", "cagr", "revenue"],
+#         "patents": ["patent", "ip", "fto", "exclusivity"],
+#         "trials": ["trial", "clinical", "phase"],
+#         "exim": ["trade", "export", "import"],
+#         "internal": ["internal", "strategy"],
+#         "web": ["guideline", "publication", "news", "web"],
+#     }
+
+#     selected_agent = None
+#     for agent, keywords in intent_map.items():
+#         if any(k in lower_message for k in keywords):
+#             selected_agent = agent
+#             break
+
+#     # ---- Build response ----
+#     if not selected_agent:
+#         response_message = (
+#             "This question goes beyond the data collected so far. "
+#             "Please run a new analysis if you’d like deeper insights."
+#         )
+
+#     elif selected_agent not in agent_results:
+#         response_message = (
+#             "That information was not generated in the current analysis. "
+#             "Please run a fresh analysis to explore this area."
+#         )
+
+#     else:
+#         # ✅ Use existing agent result
+#         result = agent_results[selected_agent]
+#         summary = result.get("summary", "")
+
+#         if not summary:
+#             response_message = "Relevant data is not available in the current analysis."
+#         else:
+#             # Keep answer concise (2–3 sentences)
+#             sentences = summary.split(".")
+#             response_message = ".".join(sentences[:3]).strip() + "."
+
+#     # Store assistant response
+#     session["chat_history"].append({
+#         "sender": "master",
+#         "message": response_message,
+#         "timestamp": datetime.now().isoformat()
+#     })
+
+#     store_session(request.session_id, session)
+
+#     return {
+#         "response": response_message,
+#         "sender": "master",
+#         "agents_used": [selected_agent] if selected_agent else []
+#     }
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
-    """Handle chat messages from user"""
     session = get_session(request.session_id)
-    
-    # Add user message to chat history
+
     session["chat_history"].append({
         "sender": "user",
         "message": request.message,
         "timestamp": datetime.now().isoformat()
     })
-    
-    # Initialize master agent
-    master = MasterAgent()
-    
-    # Simple keyword-based routing (can be enhanced with LLM)
-    lower_message = request.message.lower()
-    
-    agent_to_trigger = None
-    response_message = ""
-    
-    if "market" in lower_message or "sales" in lower_message or "iqvia" in lower_message:
-        agent_to_trigger = "iqvia"
-        response_message = "Let me pull the latest market data for you..."
-    elif "patent" in lower_message or "ip" in lower_message or "fto" in lower_message:
-        agent_to_trigger = "patents"
-        response_message = "Checking the patent landscape..."
-    elif "trial" in lower_message or "clinical" in lower_message:
-        agent_to_trigger = "trials"
-        response_message = "Searching clinical trials databases..."
-    elif "trade" in lower_message or "export" in lower_message or "import" in lower_message or "exim" in lower_message:
-        agent_to_trigger = "exim"
-        response_message = "Analyzing trade data..."
-    elif "internal" in lower_message or "strategy" in lower_message:
-        agent_to_trigger = "internal"
-        response_message = "Searching internal knowledge base..."
-    elif "guideline" in lower_message or "publication" in lower_message or "web" in lower_message:
-        agent_to_trigger = "web"
-        response_message = "Searching web intelligence sources..."
+
+    lower = request.message.lower()
+    agent_results = session.get("agent_results", {})
+
+    intent_map = {
+        "iqvia": ["market", "sales", "cagr"],
+        "exim": ["trade", "export", "import"],
+        "trials": ["trial", "clinical", "phase"],
+        "patents": ["patent", "fto", "ip"],
+        "internal": ["internal", "strategy"],
+        "web": ["web", "guideline", "news"]
+    }
+
+    selected_agent = None
+    for agent, keys in intent_map.items():
+        if any(k in lower for k in keys):
+            selected_agent = agent
+            break
+
+    # READ ONLY
+    if selected_agent and selected_agent in agent_results:
+        summary = agent_results[selected_agent].get("summary", "")
+        response = ". ".join(summary.split(".")[:3]).strip() + "."
     else:
-        response_message = f"I understand you're asking about: \"{request.message}\". Let me gather relevant information from our agents. You can also explore the tabs on the right for detailed insights."
-    
-    # If agent needs to be triggered and hasn't run yet
-    if agent_to_trigger and agent_to_trigger not in session.get("agent_results", {}):
-        molecule = session["molecule"]["name"]
-        context = session["user_query"]
-        
-        try:
-            if agent_to_trigger == "iqvia":
-                result = master.iqvia_agent.run(context)
-            elif agent_to_trigger == "exim":
-                result = master.exim_agent.run(context)
-            elif agent_to_trigger == "patents":
-                result = master.patent_agent.run(context)
-            elif agent_to_trigger == "trials":
-                result = master.ct_agent.run(context)
-            elif agent_to_trigger == "internal":
-                result = master.internal_agent.run(context)
-            elif agent_to_trigger == "web":
-                result = master.web_agent.run(context)
-            
-            session["agent_results"][agent_to_trigger] = result
-            store_session(request.session_id, session)
-            
-        except Exception as e:
-            response_message = f"Sorry, I encountered an error: {str(e)}"
-    
-    # Add response to chat history
+        response = (
+            "This question does not affect the data shown in the tabs. "
+            "You can continue exploring the Market, Trade, Trials, and Patent tabs "
+            "without any changes."
+        )
+
     session["chat_history"].append({
         "sender": "master",
-        "message": response_message,
+        "message": response,
         "timestamp": datetime.now().isoformat()
     })
+
     store_session(request.session_id, session)
-    
+
     return {
-        "response": response_message,
-        "sender": "master",
-        "agents_triggered": [agent_to_trigger] if agent_to_trigger else []
+        "response": response,
+        "sender": "master"
     }
 
 @app.get("/api/session/{session_id}")
