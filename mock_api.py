@@ -67,6 +67,13 @@ def get_iqvia(molecule: str):
 # ============================================================================
 # b. EXIM Trends Agent
 # ============================================================================
+
+
+
+
+
+
+
 @app.get("/api/exim")
 def get_exim_trends(
     product: str,
@@ -107,6 +114,49 @@ def get_exim_trends(
             ],
             "sourcing_insights": "Market dominated by Asian manufacturers, particularly China and India",
             "trend": "Increasing shift towards Indian suppliers due to geopolitical factors"
+        }
+    elif product.lower() == "imatinib api" or product.lower() == "imatinib":
+        return {
+            "product": "Imatinib API",
+            "year": year,
+            "trade_data": [
+                {
+                    "country": "India",
+                    "exports_tonnes": 850,
+                    "imports_tonnes": 50,
+                    "net_position": "Net Exporter",
+                    "top_destinations": ["US", "EU", "Brazil", "South Africa"],
+                    "value_musd": 42
+                },
+                {
+                    "country": "China",
+                    "exports_tonnes": 620,
+                    "imports_tonnes": 30,
+                    "net_position": "Net Exporter",
+                    "top_destinations": ["India", "EU", "South America"],
+                    "value_musd": 31
+                },
+                {
+                    "country": "US",
+                    "exports_tonnes": 25,
+                    "imports_tonnes": 380,
+                    "net_position": "Net Importer",
+                    "top_sources": ["India", "China"],
+                    "value_musd": 19,
+                    "import_dependency": "High (93%)"
+                },
+                {
+                    "country": "EU",
+                    "exports_tonnes": 45,
+                    "imports_tonnes": 290,
+                    "net_position": "Net Importer",
+                    "top_sources": ["India", "China"],
+                    "value_musd": 14,
+                    "import_dependency": "High (87%)"
+                }
+            ],
+            "sourcing_insights": "India dominates imatinib API manufacturing post-patent expiry. Multiple WHO-prequalified suppliers available.",
+            "trend": "Stable supply with competitive pricing due to generic competition. India accounts for 60% of global imatinib API production."
         }
     elif product.lower() == "paracetamol":
         return {
@@ -280,6 +330,94 @@ def get_clinical_trials(
                 "Asia": 44
             }
         }
+    elif molecule and molecule.lower() == "imatinib":
+        return {
+            "molecule": "Imatinib",
+            "total_trials": 1847,
+            "active_trials": [
+                {
+                    "nct_id": "NCT04205460",
+                    "title": "Imatinib in Combination with Chemotherapy for Ph+ ALL",
+                    "sponsor": "MD Anderson Cancer Center",
+                    "phase": "Phase 3",
+                    "status": "Active, recruiting",
+                    "enrollment": 320,
+                    "start_date": "2023-06-01",
+                    "estimated_completion": "2027-12-31",
+                    "indication": "Acute Lymphoblastic Leukemia (Ph+)"
+                },
+                {
+                    "nct_id": "NCT03856216",
+                    "title": "Imatinib Discontinuation in CML Patients with Deep Molecular Response",
+                    "sponsor": "European LeukemiaNet",
+                    "phase": "Phase 4",
+                    "status": "Active, not recruiting",
+                    "enrollment": 450,
+                    "start_date": "2022-03-15",
+                    "estimated_completion": "2026-03-15",
+                    "indication": "Chronic Myeloid Leukemia"
+                },
+                {
+                    "nct_id": "NCT04394715",
+                    "title": "Imatinib for Pulmonary Arterial Hypertension",
+                    "sponsor": "Imperial College London",
+                    "phase": "Phase 2",
+                    "status": "Active, recruiting",
+                    "enrollment": 80,
+                    "start_date": "2024-01-10",
+                    "estimated_completion": "2026-06-30",
+                    "indication": "Pulmonary Arterial Hypertension"
+                },
+                {
+                    "nct_id": "NCT05128201",
+                    "title": "Low-Dose Imatinib in Systemic Sclerosis",
+                    "sponsor": "Stanford University",
+                    "phase": "Phase 2",
+                    "status": "Active, recruiting",
+                    "enrollment": 60,
+                    "start_date": "2024-05-01",
+                    "estimated_completion": "2027-05-01",
+                    "indication": "Systemic Sclerosis (Scleroderma)"
+                },
+                {
+                    "nct_id": "NCT04762134",
+                    "title": "Imatinib Plus Dasatinib Combination in Resistant GIST",
+                    "sponsor": "Memorial Sloan Kettering",
+                    "phase": "Phase 2",
+                    "status": "Active, recruiting",
+                    "enrollment": 95,
+                    "start_date": "2023-09-01",
+                    "estimated_completion": "2026-09-01",
+                    "indication": "Gastrointestinal Stromal Tumor (GIST)"
+                }
+            ],
+            "phase_distribution": {
+                "Phase 1": 42,
+                "Phase 2": 156,
+                "Phase 3": 89,
+                "Phase 4": 1560
+            },
+            "sponsor_profiles": {
+                "Academic Institutions": 1245,
+                "Novartis (Originator)": 187,
+                "Other Pharma/Generics": 312,
+                "Government/NIH": 103
+            },
+            "geographic_distribution": {
+                "US": 623,
+                "EU": 412,
+                "Asia": 489,
+                "South America": 178,
+                "Africa": 145
+            },
+            "indication_breakdown": {
+                "CML": 892,
+                "GIST": 456,
+                "Ph+ ALL": 187,
+                "Other Oncology": 156,
+                "Non-Oncology (PAH, Fibrosis)": 156
+            }
+        }
     elif indication and indication.lower() == "obesity":
         return {
             "indication": "Obesity",
@@ -365,6 +503,58 @@ def get_internal_knowledge(
                 "growth_rate_vs_market": "+2.1% above market average"
             }
         }
+    elif topic and ("imatinib" in topic.lower() or "oncology" in topic.lower() or "cml" in topic.lower()):
+        return {
+            "topic": "Imatinib / Oncology Strategy",
+            "documents_found": 12,
+            "key_takeaways": [
+                "Imatinib remains gold-standard first-line CML therapy despite newer TKIs",
+                "Generic imatinib offers 85-90% cost reduction vs branded Gleevec",
+                "Opportunity in emerging markets where branded TKIs remain unaffordable",
+                "Repurposing potential in PAH and fibrotic diseases being evaluated",
+                "India manufacturing hub for low-cost imatinib API and formulations"
+            ],
+            "documents": [
+                {
+                    "title": "Oncology Generics Portfolio Strategy 2025",
+                    "type": "Strategy Deck",
+                    "date": "2024-10-20",
+                    "author": "Oncology Business Unit",
+                    "summary": "Strategic roadmap for generic oncology portfolio including imatinib, nilotinib biosimilars, and next-gen TKI opportunities",
+                    "download_link": "/docs/oncology_generics_2025.pdf"
+                },
+                {
+                    "title": "Imatinib Market Access Analysis - Emerging Markets",
+                    "type": "Market Analysis",
+                    "date": "2024-08-15",
+                    "author": "Market Access Team",
+                    "summary": "Pricing strategies and tender opportunities for imatinib in Africa, Southeast Asia, and Latin America",
+                    "download_link": "/docs/imatinib_emerging_markets.pdf"
+                },
+                {
+                    "title": "Field Insights - Oncology Q4 2024",
+                    "type": "Field Report",
+                    "date": "2024-12-01",
+                    "author": "Oncology Sales Team",
+                    "summary": "KOL feedback on generic imatinib uptake, biosimilar competition, and unmet needs in CML management",
+                    "download_link": "/docs/field_insights_onco_q4.pdf"
+                },
+                {
+                    "title": "MINS - Oncology Portfolio Review",
+                    "type": "Meeting Minutes",
+                    "date": "2024-11-15",
+                    "author": "Executive Committee",
+                    "summary": "Decision to expand imatinib capacity in India; approved Phase 2 study for imatinib in systemic sclerosis",
+                    "download_link": "/docs/mins_oncology_nov2024.pdf"
+                }
+            ],
+            "comparative_analysis": {
+                "imatinib_market_share": "34% (generic segment)",
+                "top_generic_competitors": ["Sun Pharma", "Cipla", "Dr. Reddy's", "Teva"],
+                "branded_vs_generic_split": "15% branded / 85% generic globally",
+                "growth_opportunity": "Emerging markets + repurposing indications"
+            }
+        }
     elif document_type and document_type.lower() == "mins":
         return {
             "document_type": "Meeting Minutes",
@@ -447,6 +637,93 @@ def get_web_intelligence(
                     "date": "2024-12-05",
                     "url": "https://fiercepharma.com/...",
                     "summary": "Regulatory approval expands treatment options for patients with both conditions"
+                }
+            ]
+        }
+    elif "imatinib" in query.lower():
+        return {
+            "query": query,
+            "results_count": 3456,
+            "top_results": [
+                {
+                    "title": "NCCN Clinical Practice Guidelines - Chronic Myeloid Leukemia 2025",
+                    "source": "National Comprehensive Cancer Network",
+                    "url": "https://nccn.org/guidelines/cml-2025",
+                    "date": "2025-01-15",
+                    "type": "Clinical Guideline",
+                    "summary": "Updated CML management guidelines recommending imatinib as first-line option with TFR monitoring for deep molecular responders",
+                    "key_quotes": [
+                        "Imatinib 400mg daily remains appropriate first-line therapy for chronic phase CML",
+                        "Treatment-free remission (TFR) can be attempted after 3+ years of deep molecular response",
+                        "Generic imatinib is therapeutically equivalent to branded formulations"
+                    ],
+                    "credibility_score": "High - Official NCCN guideline"
+                },
+                {
+                    "title": "European LeukemiaNet 2024 Recommendations for CML Management",
+                    "source": "European LeukemiaNet",
+                    "url": "https://leukemia-net.org/cml-2024",
+                    "date": "2024-09-01",
+                    "type": "Clinical Guideline",
+                    "summary": "Evidence-based recommendations emphasizing molecular monitoring and TKI selection based on risk stratification",
+                    "key_quotes": [
+                        "Imatinib, dasatinib, nilotinib, and bosutinib are all acceptable first-line options",
+                        "Choice should consider patient comorbidities, drug interactions, and cost"
+                    ],
+                    "credibility_score": "High - Expert consensus guideline"
+                }
+            ],
+            "scientific_publications": [
+                {
+                    "title": "15-Year Follow-up of Imatinib-Treated CML Patients: IRIS Trial Long-term Results",
+                    "journal": "Journal of Clinical Oncology",
+                    "doi": "10.1200/JCO.2024.42.15_suppl",
+                    "date": "2024-06-01",
+                    "summary": "87% overall survival at 15 years; confirms imatinib as transformative therapy for CML"
+                },
+                {
+                    "title": "Cost-Effectiveness of Generic Imatinib vs Second-Generation TKIs",
+                    "journal": "Blood Advances",
+                    "doi": "10.1182/bloodadvances.2024012345",
+                    "date": "2024-11-15",
+                    "summary": "Generic imatinib offers superior cost-effectiveness for low/intermediate-risk CML patients"
+                },
+                {
+                    "title": "Imatinib Repurposing in Pulmonary Arterial Hypertension: Systematic Review",
+                    "journal": "European Respiratory Journal",
+                    "doi": "10.1183/erj.2024.54321",
+                    "date": "2024-08-20",
+                    "summary": "Emerging evidence supports imatinib in severe PAH refractory to standard therapy"
+                }
+            ],
+            "news_articles": [
+                {
+                    "title": "WHO Adds Generic Imatinib to Essential Medicines List for Pediatric CML",
+                    "source": "Reuters Health",
+                    "date": "2024-10-10",
+                    "url": "https://reuters.com/health/...",
+                    "summary": "WHO endorses affordable generic imatinib for childhood CML in resource-limited settings"
+                },
+                {
+                    "title": "Sun Pharma Expands Imatinib Production Capacity in India",
+                    "source": "Economic Times",
+                    "date": "2024-12-02",
+                    "url": "https://economictimes.com/...",
+                    "summary": "Major Indian manufacturer increases capacity to meet growing global demand"
+                }
+            ],
+            "patient_forum_insights": [
+                {
+                    "source": "CML Support Group",
+                    "thread_title": "Generic vs branded Gleevec - any difference?",
+                    "date": "2024-11-28",
+                    "post_count": 234,
+                    "key_themes": ["Cost savings", "Side effects comparison", "Insurance coverage"],
+                    "sentiment": "Positive - Most report no difference between generic and branded",
+                    "sample_quotes": [
+                        "Switched to generic 2 years ago, same blood counts, saved $2000/month",
+                        "My oncologist said generic is exactly the same molecule"
+                    ]
                 }
             ]
         }
