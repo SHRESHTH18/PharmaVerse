@@ -714,7 +714,7 @@ def get_web_intelligence(
             ],
             "patient_forum_insights": [
                 {
-s                    "source": "CML Support Group",
+                    "source": "CML Support Group",
                     "thread_title": "Generic vs branded Gleevec - any difference?",
                     "date": "2024-11-28",
                     "post_count": 234,
