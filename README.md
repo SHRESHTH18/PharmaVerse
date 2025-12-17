@@ -1,137 +1,164 @@
-# PharmaVerse - Agentic AI for Portfolio Innovation
 
-## Overview
-PharmaVerse is a comprehensive web application that uses AI agents to analyze pharmaceutical innovation opportunities. The system orchestrates multiple specialized AI agents to gather market intelligence, clinical trial data, patent information, and trade insights, then synthesizes this information into actionable innovation opportunities.
 
-## Features
+# PharmaVerse  
+### Agentic AI Platform for Pharmaceutical Portfolio Innovation
 
-### 1. **Landing Page (Screen 1)**
-- **Agent Network Visualization**: Interactive circular diagram showing the Master Agent at the center with 7 worker agents positioned around it
-  - Internal Knowledge Agent
-  - EXIM Trends Agent
-  - Patent Landscape Agent
-  - Clinical Trials Agent
-  - IQVIA Insights Agent
-  - Web Intelligence Agent
-  - Report Generator Agent
-- **Navigation Options**:
-  - "Start New Molecule Exploration" - Initiates a new case analysis
-  - "View Saved Cases / Reports" - Accesses archived reports
+---
 
-### 2. **Case Setup Screen (Screen 2)**
-- **Input Form Fields**:
-  - Molecule Name (e.g., Roflumilast)
-  - Current Indication (e.g., COPD)
-  - Geography (e.g., US, EU, India)
-  - Target Timeframe (e.g., 2024-2026)
-  - Strategic Question (free text)
-- **Exploration Journey Visualization**: Shows 5-step process:
-  1. Unmet Need & Disease Burden
-  2. Market & EXIM Dynamics
-  3. Clinical Trials Landscape
-  4. Patent Landscape
-  5. Product Story & Report
-- **Launch Agent Run**: Triggers agent orchestration
+## 🚩 Problem Statement
 
-### 3. **Main Workspace (Screen 3)**
-- **Top Bar**:
-  - Current molecule name and indication display
-  - Navigation to Molecule Dossier
-  - Report Generation button
-- **Agent Status Strip**: Real-time status indicators for all agents
-  - States: Idle, Running, Done, Error
-  - Visual icons and animations
-- **Left Sidebar**:
-  - Case Details (Molecule, Indication, Geography)
-  - Filters (Country dropdown, Therapy Area dropdown)
-  - Conversation History list
-- **Center: Chat Interface**:
-  - Real-time chat messages from Master Agent and Worker Agents
-  - User input field with send button
-  - Message bubbles with agent-specific styling
-  - Scrollable message history
-- **Right Panel: Insights Tabs**:
-  - **Overview Tab**: Executive summary and key findings
-  - **Market Tab**: Market analysis with tables and charts
-  - **Trade Tab**: EXIM data visualization
-  - **Trials Tab**: Clinical trials pipeline information
-  - **Patents Tab**: Patent landscape and FTO status
+Pharmaceutical innovation decisions require synthesizing insights from **multiple fragmented data sources**—market intelligence, clinical trials, patents, trade flows, and scientific guidelines.  
+Today, this process is **manual, time-consuming, and siloed**, making it difficult for strategy and R&D teams to identify high-value innovation opportunities quickly.
 
-### 4. **Molecule Dossier (Screen 4)**
-- **Header Section**: Molecule name, primary indication, and key unmet need
-- **Unmet Needs & Patient Burden**:
-  - Bulleted list of unmet needs
-  - Patient statistics (US, Global, Market CAGR)
-- **Ongoing Clinical Trials Table**:
-  - Sponsor, Phase, Indication, Geography, Est. Completion
-- **Patent Landscape Table**:
-  - Assignee, Patent ID, Title, Expiry, FTO Flag
-- **Innovation Opportunities**:
-  - Grid of innovation idea cards with:
-    - Title and description
-    - Feasibility and Impact badges
+**PharmaVerse** addresses this challenge by using **Agentic AI** to autonomously collect, analyze, and integrate diverse pharma intelligence into a **single, explainable, and actionable workflow**.
 
-### 5. **Reports Archive (Screen 5)**
-- **Report Preview Section**:
-  - Executive Summary
-  - Market & EXIM Snapshot
-  - Clinical Pipeline Overview
-  - Patent Summary
-  - Innovation Opportunities
-  - Download buttons (PDF, Excel)
-- **Report Archive Sidebar**:
-  - List of saved reports
-  - Molecule name, date, geography
-  - Tags (Diabetes, Oncology, etc.)
+---
 
-### 6. **Agent Orchestration**
-- Sequential execution of worker agents:
-  1. IQVIA Agent (Market analysis)
-  2. EXIM Agent (Trade data)
-  3. Patent Agent (IP landscape)
-  4. Clinical Trials Agent (Pipeline data)
-  5. Web Intelligence Agent (Guidelines & publications)
-- Master Agent coordination and chat responses
+## 💡 Solution Overview
 
-### 7. **Chat Functionality**
-- Interactive chat with Master Agent
-- Natural language query processing
-- Keyword-based routing to specific agents
-- Context-aware responses
-- Multi-agent conversation flow
+PharmaVerse is a **multi-agent AI system** that:
+- Orchestrates domain-specific AI agents
+- Maintains structured, persistent insights
+- Enables natural language interaction
+- Produces **decision-ready dashboards and downloadable reports**
 
-### 8. **Real-time Updates**
-- Agent status animations (running pulse effect)
-- Dynamic data loading in insight panels
-- Live chat message updates
-- Tab switching with context preservation
+The platform transforms a **single strategic question** into:
+- Cross-functional insights
+- Interactive analysis tabs
+- A professionally structured PDF report
 
-### 9. **Data Visualization**
-- Tables for market, trade, trials, and patents data
-- Charts for phase distribution (Clinical Trials)
-- Summary cards with key metrics
-- Badge indicators for status (Active, Clear, Blocked)
+---
 
-### 10. **Report Generation**
-- PDF report generation
-- Excel export option
-- Report metadata (ID, date, topic)
-- Download functionality
+## 🧠 System Architecture
+User (Web UI)
+│
+▼
+Master Agent (LLM + LangGraph)
+│
+├── IQVIA Agent        → Market & competition
+├── EXIM Agent         → Trade & sourcing
+├── Patent Agent       → IP & FTO
+├── Clinical Agent     → Trial pipeline
+├── Web Intel Agent    → Guidelines & publications
+├── Internal Agent     → Strategy insights
+├── Demographic Agent  → Chart-ready data
+└── Report Agent       → PDF generation
 
-## Technology Stack
-- **Frontend**: Vanilla JavaScript, HTML5, CSS3
-- **Styling**: Tailwind CSS, Custom CSS animations
-- **Charts**: Chart.js (included but not fully implemented)
-- **Icons**: Font Awesome 6.4.0
-- **API Integration**: Fetch API for REST endpoints
+---
 
-## UI/UX Features
-- Gradient backgrounds and glass-morphism effects
-- Smooth animations and transitions
-- Responsive design (mobile-friendly)
-- Custom scrollbars
-- Loading spinners
-- Hover effects on interactive elements
-- Color-coded agent status indicators
-- Tab-based navigation
-- Modal-like screen transitions
+## 🔄 End-to-End Workflow
+
+### 1️⃣ Case Setup
+User provides:
+- Molecule
+- Indication
+- Geography
+- Timeframe
+- Strategic question
+
+---
+
+### 2️⃣ Agent Planning (LLM-Driven)
+The **Master Agent**:
+- Interprets the user intent
+- Determines which agents to invoke
+- Extracts molecule & indication context
+
+---
+
+### 3️⃣ Agent Execution
+Each agent:
+- Operates independently
+- Fetches domain-specific intelligence
+- Returns structured JSON + concise summary
+
+Outputs are **cached** and reused throughout the session.
+
+---
+
+### 4️⃣ Interactive Workspace
+
+#### Chat Interface
+- Natural language interaction
+- Master Agent synthesizes insights
+- Follow-up questions answered without re-running agents
+
+#### Insights Tabs (Persistent & Independent)
+- Overview
+- Market
+- Trade
+- Clinical Trials
+- Patents
+
+> Follow-up questions **never overwrite tab data**
+
+---
+
+### 5️⃣ Report Generation
+- Report generated **once per analysis**
+- Includes:
+  - Executive summary
+  - Agent insights
+  - Demographic charts
+- Same download link reused across:
+  - Chat window
+  - Innovation Opportunity screen
+  - Download PDF button
+
+---
+
+## 📊 Key Features
+
+- Multi-agent orchestration
+- LLM-driven planning
+- Structured & explainable outputs
+- Persistent UI state
+- Follow-up safe interaction
+- Automated PDF report generation
+
+---
+
+## 🛠️ Technology Stack
+
+### Frontend
+- HTML5
+- Vanilla JavaScript
+- Tailwind CSS
+- Font Awesome
+- Chart.js
+
+### Backend
+- Python 3.9+
+- FastAPI
+- LangChain
+- LangGraph
+- Groq LLM
+- ReportLab
+- Matplotlib
+
+---
+
+---
+
+## 🎯 Hackathon Value Proposition
+
+- Demonstrates **real-world Agentic AI**
+- Clear separation of reasoning & execution
+- Scalable, modular architecture
+- Enterprise-ready decision support system
+- Strong alignment with pharma strategy workflows
+
+---
+
+## 🚀 Future Enhancements
+
+- User authentication & saved sessions
+- Multi-molecule comparison
+- Real-time external data connectors
+- Advanced dashboards
+- Role-based insights
+
+---
+
+## PharmaVerse  
+**From fragmented pharma intelligence to innovation-ready decisions — powered by Agentic AI.**

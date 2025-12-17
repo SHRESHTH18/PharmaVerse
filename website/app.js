@@ -135,7 +135,7 @@ async function callMasterAgent(userQuery, isFollowUp = false) {
         if (ctxParts.length > 0) {
             const contextText = `Context for this analysis – ${ctxParts.join('. ')}.`;
             enrichedQuery = `${contextText} User question: ${userQuery}`;
-        }
+}
     }
     
     // Mark all agents as running for a new request
@@ -180,7 +180,7 @@ async function callMasterAgent(userQuery, isFollowUp = false) {
             
             if (result.final_answer) {
                 addChatMessage('master', result.final_answer);
-            }
+    }
             
             if (result.report && result.report.download_link) {
                 const fullUrl = result.download_link || result.report.download_link;
@@ -197,7 +197,7 @@ async function callMasterAgent(userQuery, isFollowUp = false) {
             Object.keys(AppState.agentStatuses).forEach(agent => {
                 if (AppState.agentStatuses[agent] === 'running') {
                     updateAgentStatus(agent, 'done');
-                }
+        }
             });
         }
         
@@ -608,7 +608,7 @@ function displayMarketInsights() {
                 </thead>
                 <tbody>
                         ${markets.map(market => `
-                            <tr>
+                        <tr>
                                 <td class="font-medium">${market.country || 'N/A'}</td>
                                 <td>$${market.sales_2024_musd || market.sales || 'N/A'}M</td>
                                 <td class="${(market.cagr_5y || 0) > 0 ? 'text-green-600' : 'text-red-600'}">
@@ -665,11 +665,11 @@ function displayTradeInsights() {
                 </thead>
                 <tbody>
                         ${tradeData.map(trade => `
-                            <tr>
+                        <tr>
                                 <td class="font-medium">${trade.country || 'N/A'}</td>
                                 <td>${(trade.exports_tonnes || 0).toLocaleString()}</td>
                                 <td>${(trade.imports_tonnes || 0).toLocaleString()}</td>
-                                <td>
+                            <td>
                                     <span class="badge ${(trade.net_position || '').includes('Exporter') ? 'badge-green' : 'badge-yellow'}">
                                         ${trade.net_position || 'N/A'}
                                 </span>
@@ -790,7 +790,7 @@ function displayPatentInsights() {
                 </thead>
                 <tbody>
                         ${patents.map(patent => `
-                            <tr>
+                        <tr>
                                 <td class="font-mono text-xs">${patent.patent_number || 'N/A'}</td>
                                 <td>${patent.holder || 'N/A'}</td>
                                 <td>${patent.expiry_date || 'N/A'}</td>
@@ -845,8 +845,8 @@ async function generateReport() {
             document.body.removeChild(link);
         } else {
             addChatMessage('report', `Report generated. ID: ${report.report_id || 'N/A'}`);
-        }
-        
+}
+
         showScreen('screen-reports');
         loadReportsArchive();
     } else {
